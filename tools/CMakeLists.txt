@@ -1,0 +1,1 @@
+add_executable(my_target ShootingTarget.c)
