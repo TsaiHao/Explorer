@@ -1,34 +1,70 @@
 cmake_minimum_required(VERSION 3.20)
 project(explorer LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(ANDROID_NDK "" CACHE PATH "Path to Android NDK")
-# set(ANDROID_SDK "" CACHE PATH "Path to Android SDK")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if (NOT EXISTS ${ANDROID_NDK})
-    message(FATAL_ERROR "Please specify ANDROID_NDK path: -DANDROID_NDK=<path>")
+set(TARGET_ANDROID ON CACHE BOOL "Compile for Android platform")
+set(ENABLE_DEBUG OFF CACHE BOOL "Enable debug logs")
+
+if (TARGET_ANDROID)
+    include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
 endif ()
-
-set(ANDROID_PLATFORM android-21)  # Minimum API level
-set(ANDROID_ABI armeabi-v7a)     # Target architecture
-set(ANDROID_STL c++_shared)      # C++ STL to use
-
-include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
 
 set(SOURCES
         src/main.cpp
-        src/Argument.h
-        src/Argument.cpp
+        #src/Argument.h
+        #src/Argument.cpp
+        src/Application.cpp
+        src/Application.h
+        src/TaskConfig.cpp
+        src/TaskConfig.h
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+set(FRIDA_WRAPPER_SOURCES
+        src/frida/Device.cpp
+        src/frida/Device.h
+        src/frida/Script.cpp
+        src/frida/Script.h
+        src/frida/Session.cpp
+        src/frida/Session.h
+)
 
-#target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
+set(UTILS_SOURCES
+        src/utils/Log.cpp
+        src/utils/Log.h
+        src/utils/System.cpp
+        src/utils/System.h
+        src/utils/Status.cpp
+        src/utils/Status.h
+        src/utils/SmallMap.h
+        src/utils/Macros.h
+)
+
+add_executable(${PROJECT_NAME} ${SOURCES} ${FRIDA_WRAPPER_SOURCES} ${UTILS_SOURCES})
+target_include_directories(${PROJECT_NAME} PRIVATE src)
+
+if (ENABLE_DEBUG)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE EXP_DEBUG)
+endif ()
+
+if (TARGET_ANDROID)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE TARGET_ANDROID)
+    target_link_libraries(${PROJECT_NAME} PRIVATE log)
+else ()
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+            resolv
+            "-framework CoreFoundation"
+            "-framework IOKit"
+            "-framework AppKit"
+            "-framework Cocoa"
+            "-framework Security")
+endif ()
 
 add_subdirectory(third_party)
-target_link_libraries(${PROJECT_NAME} DEPS)
+target_link_libraries(${PROJECT_NAME} PRIVATE DEPS)
 
 add_subdirectory(tools)

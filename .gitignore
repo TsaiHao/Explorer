@@ -1,1 +1,9 @@
+/.cache
+/.idea
 /build
+/build-mac
+/frida_temp_extract_dir
+/third_party/frida
+
+/compile_commands.json
+/debug.js

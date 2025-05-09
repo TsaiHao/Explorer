@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int main(int argc, char *argv[]) {
+int main() {
   printf("Start outputting\n");
+
+  pid_t self_pid = getpid();
 
   int i = 0;
   while (1) {
-    printf(">> %04d", i++);
+    printf("[%d] >> %04d iteration\n", self_pid, i++);
     fflush(stdout);
 
     sleep(2);
