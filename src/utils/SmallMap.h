@@ -56,8 +56,7 @@ public:
     return Data.back().second;
   }
 
-  template <typename K>
-  mapped_type &At(const K &KeyToFind) {
+  template <typename K> mapped_type &At(const K &KeyToFind) {
     auto it = Find(KeyToFind);
     if (it != End()) { // Use non-const End()
       return it->second;
@@ -65,8 +64,7 @@ public:
     std::unreachable();
   }
 
-  template <typename K>
-  const mapped_type &At(const K &KeyToFind) const {
+  template <typename K> const mapped_type &At(const K &KeyToFind) const {
     auto it = Find(KeyToFind);
     if (it != CEnd()) { // Use const CEnd()
       return it->second;
@@ -74,22 +72,21 @@ public:
     std::unreachable();
   }
 
-  template <typename K>
-  iterator Find(const K &KeyToFind) {
-    return std::find_if(
-        Data.begin(), Data.end(),
-        [&KeyToFind](const PairType &CurrentPair) { return CurrentPair.first == KeyToFind; });
+  template <typename K> iterator Find(const K &KeyToFind) {
+    return std::find_if(Data.begin(), Data.end(),
+                        [&KeyToFind](const PairType &CurrentPair) {
+                          return CurrentPair.first == KeyToFind;
+                        });
   }
 
-  template <typename K>
-  const_iterator Find(const K &KeyToFind) const {
-    return std::find_if(
-        Data.cbegin(), Data.cend(),
-        [&KeyToFind](const PairType &CurrentPair) { return CurrentPair.first == KeyToFind; });
+  template <typename K> const_iterator Find(const K &KeyToFind) const {
+    return std::find_if(Data.cbegin(), Data.cend(),
+                        [&KeyToFind](const PairType &CurrentPair) {
+                          return CurrentPair.first == KeyToFind;
+                        });
   }
 
-  template <typename K>
-  bool Contains(const K &KeyToFind) const {
+  template <typename K> bool Contains(const K &KeyToFind) const {
     return Find(KeyToFind) != CEnd();
   }
 
@@ -135,12 +132,9 @@ public:
     return Data.erase(it);
   }
 
-  iterator Erase(iterator Pos) {
-      return Data.erase(Pos);
-  }
+  iterator Erase(iterator Pos) { return Data.erase(Pos); }
 
-  template <typename K>
-  size_type Erase(const K &KeyToErase) {
+  template <typename K> size_type Erase(const K &KeyToErase) {
     auto it = Find(KeyToErase);
     if (it != End()) {
       Data.erase(it);

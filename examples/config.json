@@ -1,0 +1,22 @@
+[
+  {
+    "app": "my_target",
+    "script_source": "rpc.exports.add = async (a, b) => {console.log('Adding', a, b); return a + b;};",
+    "trace": [
+      {
+        "type": "native",
+        "namespace": "android",
+        "class": "MediaCodec",
+        "method": "start",
+        "backtrace": true
+      },
+      {
+        "type": "java",
+        "class": "android.media.MediaCodec",
+        "method": "start",
+        "arguments": true,
+        "log": true
+      }
+    ]
+  }
+]

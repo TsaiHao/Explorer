@@ -16,12 +16,15 @@ endif ()
 
 set(SOURCES
         src/main.cpp
-        #src/Argument.h
-        #src/Argument.cpp
         src/Application.cpp
         src/Application.h
-        src/TaskConfig.cpp
-        src/TaskConfig.h
+)
+
+set(PLUGIN_SOURCES
+        src/plugins/Plugin.h
+        src/plugins/Plugin.cpp
+        src/plugins/function_tracer/FunctionTracer.h
+        src/plugins/function_tracer/FunctionTracer.cpp
 )
 
 set(FRIDA_WRAPPER_SOURCES

@@ -6,7 +6,8 @@
 #include "utils/Log.h"
 
 namespace frida {
-Session::Session(FridaSession *session) : mSession(session) {
+Session::Session(pid_t pid, FridaSession *session)
+    : mSession(session), mPid(pid) {
   LOG(INFO) << "Creating session " << this;
 }
 
@@ -21,10 +22,13 @@ Session::~Session() {
 }
 
 Status Session::CreateScript(std::string_view name, std::string_view source) {
-  if (mScripts.Contains(name)) {
+  LOG(DEBUG) << "Creating script " << name << " for process " << mPid;
+
+  if (mScripts.Contains(std::string(name))) {
     return InvalidOperation("Duplicate name");
   }
-  mScripts[std::string(name)] = std::make_unique<Script>(name, source, mSession);
+  mScripts[std::string(name)] =
+      std::make_unique<Script>(name, source, mSession);
 
   return Ok();
 }
@@ -54,7 +58,11 @@ void Session::Detach() {
   mAttaching = false;
 }
 
-Script *Session::GetScript(std::string_view name) {
+Status Session::LoadTracerFromConfig(const nlohmann::json &config) {
+  return Ok();
+}
+
+Script *Session::GetScript(std::string_view name) const {
   if (!mScripts.Contains(name)) {
     return nullptr;
   }

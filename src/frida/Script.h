@@ -4,10 +4,15 @@
 #pragma once
 
 #include "frida/include/frida-core.h"
-#include "utils/Log.h"
+#include "utils/Macros.h"
 #include "utils/Status.h"
+#include "utils/SmallMap.h"
+#include "nlohmann/json.hpp"
 
+#include <condition_variable>
 #include <functional>
+#include <atomic>
+#include <expected>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -16,6 +21,7 @@
 
 namespace frida {
 class Session;
+using RpcResult = std::expected<nlohmann::json, nlohmann::json>;
 
 class Script {
 public:
@@ -34,9 +40,18 @@ public:
   void AddMessageCallback(std::string_view name, OnMessageCallback callback);
   void RemoveCallback(std::string_view name);
 
+  RpcResult RpcCallSync(std::string_view method, const std::vector<std::string>& param_json);
+
+  int SendRpcCall(std::string_view method, const std::vector<std::string>& param_json);
+  RpcResult WaitForRpcCallResult(int call_id);
+
 private:
   static void OnMessage(const FridaScript *script, const gchar *message,
                         GBytes *data, gpointer user_data);
+
+  bool MaybeProcessSystemMessage(nlohmann::json &msg);
+
+  void OnRpcReturn(nlohmann::json &msg);
 
   void ProcessMessage(const FridaScript *script, std::string_view message,
                       GBytes *data);
@@ -49,5 +64,10 @@ private:
   FridaScript *mScript{nullptr};
   std::unordered_map<std::string, OnMessageCallback> mCallbacks;
   FridaSession *mSession{nullptr};
+
+  std::atomic<int> mRpcCallID {0};
+  SmallMap<int, RpcResult> mRpcCallResults;
+  std::condition_variable mRpcCallCondVar;
+  std::mutex mRpcCallMutex;
 };
 } // namespace frida

@@ -1,13 +1,15 @@
 #pragma once
 
-#include "TaskConfig.h"
+#include <memory>
+#include <string>
 
 class Application {
 public:
-  explicit Application(TaskConfig config);
+  explicit Application(std::string_view config);
   ~Application();
 
   void Run() const;
+
 private:
   class Impl;
   std::unique_ptr<Impl> mImpl;

@@ -7,3 +7,5 @@
 
 /compile_commands.json
 /debug.js
+/debug.log
+/debug.sh

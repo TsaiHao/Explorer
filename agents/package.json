@@ -1,0 +1,22 @@
+{
+  "name": "@amzn/fridas-agent",
+  "version": "1.0.0",
+  "description": "Agent used by Explorer",
+  "private": true,
+  "main": "agent.ts",
+  "scripts": {
+    "build_function_tracer": "frida-compile FunctionTracer.ts -S -o ../src/plugins/functoin_tracer/FunctionTracer.js",
+    "buildssl": "frida-compile ssl_logger.ts -c -o ../output/ssl_logger.js",
+    "buildframe": "frida-compile frame_tracer.ts -c -o ../output/frame_tracer.js",
+    "watch_function_tracer": "frida-compile FunctionTracer.ts -w -S -o ../output/agent.js",
+    "watchssl": "frida-compile ssl_logger.ts -w -o ../output/ssl_logger.js"
+  },
+  "devDependencies": {
+    "@types/frida-gum": "^18.7.0",
+    "@types/node": "^17.0.36",
+    "frida-compile": "^10.2.5"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

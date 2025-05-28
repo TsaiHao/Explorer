@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <ostream>
+#include <string>
 
 enum class StatusCode : int8_t {
   kOk,
@@ -29,6 +29,9 @@ public:
 private:
   // todo: optimize memory layout
   StatusCode mCode{StatusCode::kOk};
+#ifdef EXP_DEBUG
+  std::string mMessage;
+#endif
 };
 
 std::ostream &operator<<(std::ostream &os, const Status &status);

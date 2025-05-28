@@ -13,6 +13,8 @@
 namespace frida {
 class Device {
 public:
+  using EnumerateSessionCallback = std::function<bool(Session *session)>;
+
   Device();
   ~Device();
 
@@ -21,7 +23,10 @@ public:
   Status Attach(pid_t target_pid);
   Status Detach(pid_t target_pid);
 
-  Session* GetSession(pid_t target_pid) const;
+  Session *GetSession(pid_t target_pid) const;
+
+  bool EnumerateSessions(const EnumerateSessionCallback &callback) const;
+
 private:
   std::string mName;
   FridaDevice *mDevice{nullptr};

@@ -14,7 +14,7 @@ Device::Device() {
   GError *error = nullptr;
   auto *devices =
       frida_device_manager_enumerate_devices_sync(mManager, nullptr, &error);
-  CHECK(error == nullptr) << "Error enumerating devices";
+  CHECK(error == nullptr);
 
   const auto n_devices = frida_device_list_size(devices);
   for (int i = 0; i < n_devices; ++i) {
@@ -59,8 +59,7 @@ Status Device::Attach(pid_t target_pid) {
             << " targeting " << target_pid;
 
   CHECK(mDevice != nullptr);
-  CHECK(!mSessions.Contains(target_pid))
-      << "Process " << target_pid << " has been attached";
+  CHECK(!mSessions.Contains(target_pid));
 
   GError *error = nullptr;
 
@@ -73,7 +72,7 @@ Status Device::Attach(pid_t target_pid) {
     return SdkFailure("frida attach api failed");
   }
 
-  mSessions[target_pid] = std::make_unique<Session>(session);
+  mSessions[target_pid] = std::make_unique<Session>(target_pid, session);
 
   return Ok();
 }
@@ -83,8 +82,7 @@ Status Device::Detach(pid_t target_pid) {
   LOG(INFO) << "Detaching frida device " << mName << "@" << this;
 
   CHECK(mDevice != nullptr);
-  CHECK(mSessions.Contains(target_pid))
-      << "Process " << target_pid << " isn't attched yet";
+  CHECK(mSessions.Contains(target_pid));
 
   mSessions.Erase(target_pid);
   return Ok();
@@ -95,6 +93,16 @@ Session *Device::GetSession(pid_t target_pid) const {
     return nullptr;
   }
   return mSessions.At(target_pid).get();
+}
+
+bool Device::EnumerateSessions(const EnumerateSessionCallback &callback) const {
+  for (auto it = mSessions.CBegin(); it != mSessions.CEnd(); ++it) {
+    const auto &session = it->second.get();
+    if (callback(session)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 } // namespace frida

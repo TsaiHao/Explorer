@@ -6,11 +6,17 @@
 #include "utils/Log.h"
 
 #include "nlohmann/json.hpp"
+#include <mutex>
 using nlohmann::json;
 
 #include <ranges>
 
 #define LOCK() const std::lock_guard<std::mutex> lock(mMutex);
+
+constexpr std::string_view kClientMessagePrefix = "[Client]";
+constexpr std::string_view kRpcIdentifier = "frida:rpc";
+constexpr std::string_view kRpcResultOk = "ok";
+constexpr std::string_view kRpcResultError = "error";
 
 namespace frida {
 Script::Script(std::string_view name, std::string_view source,
@@ -59,7 +65,7 @@ void Script::Load() {
   }
 
   frida_script_load_sync(mScript, nullptr, &error);
-  CHECK(error != nullptr);
+  CHECK(error == nullptr);
 
   LOG(DEBUG) << "Script loaded " << mName << "@" << this;
 }
@@ -91,6 +97,59 @@ void Script::RemoveCallback(std::string_view name) {
   }
 }
 
+RpcResult Script::RpcCallSync(std::string_view method, const std::vector<std::string>& param_json) {
+  CHECK(!method.empty());
+
+  int const call_id = SendRpcCall(method, param_json);
+  if (call_id < 0) {
+    return std::unexpected(nlohmann::json{{"error", "Failed to send RPC call"}});
+  }
+
+  return WaitForRpcCallResult(call_id);
+}
+
+int Script::SendRpcCall(std::string_view method, const std::vector<std::string>& param_json) {
+  CHECK(!method.empty());
+
+  std::string message;
+  message.reserve(256);
+
+  int const call_id = mRpcCallID++;
+  message.append("[\"")
+    .append(kRpcIdentifier)
+    .append("\",")
+    .append(std::to_string(call_id))
+    .append(R"(,"call",")")
+    .append(method)
+    .append("\",[");
+  
+  for (const auto &param : param_json) {
+    message.append(param).append(",");
+  }
+
+  if (!param_json.empty()) {
+    message.pop_back();
+  }
+  message.append("]]");
+
+  frida_script_post(mScript, message.c_str(), nullptr);
+  LOG(DEBUG) << "Sent RPC call " << message << " with ID " << call_id;
+
+  return call_id;
+}
+
+RpcResult Script::WaitForRpcCallResult(int call_id) {
+  std::unique_lock<std::mutex> lock(mRpcCallMutex);
+  mRpcCallCondVar.wait(lock, [this, call_id] {
+    return mRpcCallResults.Contains(call_id);
+  });
+
+  auto result = std::move(mRpcCallResults[call_id]);
+  mRpcCallResults.Erase(call_id);
+
+  return result;
+}
+
 void Script::OnMessage(const FridaScript *script, const gchar *message,
                        GBytes *data, gpointer user_data) {
   auto *s = static_cast<Script *>(user_data);
@@ -104,33 +163,102 @@ static void WriteLogMessage(json &msg) {
   auto const &message = msg["payload"].get_ref<std::string &>();
   switch (EXPECT(level[0], 'i')) {
   case 'i':
-    LOG(INFO) << "[Client] " << message;
+    LOG(INFO) << kClientMessagePrefix << message;
     return;
   case 'd':
-    LOG(DEBUG) << "[Client] " << message;
+    LOG(DEBUG) << kClientMessagePrefix << message;
     return;
   case 'w':
-    LOG(WARNING) << "[Client] " << message;
+    LOG(WARNING) << kClientMessagePrefix << message;
     return;
   case 'e':
-    LOG(ERROR) << "[Client] " << message;
+    LOG(ERROR) << kClientMessagePrefix << message;
     return;
   default:
     LOG(INFO) << "Unknown level " << level << " [0]=" << level[0];
   }
 }
 
-void Script::ProcessMessage(const FridaScript *script, std::string_view message,
-                            GBytes *data) {
-  CHECK(script == mScript) << "This script is not what we're holding";
+bool Script::MaybeProcessSystemMessage(nlohmann::json &msg) {
+  if (!msg.is_object()) {
+    return false;
+  }
+  if (!msg.contains("type")) {
+    return false;
+  }
 
-  auto msg_obj = json::parse(message);
-  if (msg_obj.is_object()) {
-    if (msg_obj.contains("type") &&
-        msg_obj["type"].get_ref<std::string &>() == "log") {
-      WriteLogMessage(msg_obj);
+  const auto &type = msg["type"];
+  if(type == "log") {
+    WriteLogMessage(msg);
+    return true;
+  }
+  if (type == "send") {
+    if (msg.contains("payload")) {
+      const auto &payload = msg["payload"];
+      if (payload.is_array() && payload.size() >= 3) {
+        const std::string &identifier = payload[0].get<std::string>();
+        if (identifier == kRpcIdentifier) {
+          OnRpcReturn(msg);
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+void Script::OnRpcReturn(json &msg) {
+  auto const &payload = msg["payload"];
+  if (!payload.is_array() || payload.size() < 3) {
+    LOG(ERROR) << "Invalid RPC return message: " << msg.dump();
+    return;
+  }
+
+  const std::string &identifier = payload[0].get<std::string>();
+  if (identifier != kRpcIdentifier) {
+    LOG(ERROR) << "Invalid RPC return identifier: " << identifier;
+    return;
+  }
+  int call_id = payload[1].get<int>();
+  const std::string &type = payload[2].get<std::string>();
+
+  if (type == kRpcResultOk) {
+    if (payload.size() < 4) {
+      LOG(ERROR) << "Invalid RPC return message: " << msg.dump();
       return;
     }
+    json result = payload[3];
+
+    std::lock_guard lock(mRpcCallMutex);
+    CHECK(!mRpcCallResults.Contains(call_id));
+    mRpcCallResults[call_id] = std::move(result);
+
+    mRpcCallCondVar.notify_all();
+  } else if (type == kRpcResultError) {
+    if (payload.size() < 4) {
+      LOG(ERROR) << "Invalid RPC error message: " << msg.dump();
+      return;
+    }
+    json error = payload[3];
+
+    std::lock_guard lock(mRpcCallMutex);
+    CHECK(!mRpcCallResults.Contains(call_id));
+    mRpcCallResults[call_id] = std::unexpected(std::move(error));
+
+    mRpcCallCondVar.notify_all();
+  } else {
+    LOG(ERROR) << "Unknown RPC return type: " << type;
+  }
+}
+
+void Script::ProcessMessage(const FridaScript *script, std::string_view message,
+                            GBytes *data) {
+  CHECK(script == mScript);
+
+  auto msg_obj = json::parse(message);
+  if (MaybeProcessSystemMessage(msg_obj)) {
+    return;
   }
 
   LOG(DEBUG) << "Processing message " << message;
