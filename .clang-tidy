@@ -9,6 +9,7 @@ Checks: >
   portability-*,
   readability-*,
   -bugprone-suspicious-stringview-data-usage,
+  -bugprone-easily-swappable-parameters,
   -google-readability-namespace-comments,
   -google-runtime-int,
   -google-runtime-references,

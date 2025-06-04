@@ -5,7 +5,7 @@ set -ex
 
 # --- Script Configuration ---
 # Define the Frida version to download. Update this as needed.
-readonly FRIDA_VERSION="16.7.14"
+readonly FRIDA_VERSION="17.0.6"
 # Define the base directory for third-party dependencies
 readonly BASE_DEPS_DIR="third_party/frida"
 # NDK Path (Update if necessary for your environment)

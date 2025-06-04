@@ -1,7 +1,7 @@
 [
   {
-    "app": "my_target",
-    "script_source": "rpc.exports.add = async (a, b) => {console.log('Adding', a, b); return a + b;};",
+    "app": "com.amazon.tv.localgallery",
+    "scripts": "/data/local/tmp/debug.js",
     "trace": [
       {
         "type": "native",

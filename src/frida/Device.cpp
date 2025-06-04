@@ -19,7 +19,7 @@ Device::Device() {
   const auto n_devices = frida_device_list_size(devices);
   for (int i = 0; i < n_devices; ++i) {
     auto *device = frida_device_list_get(devices, i);
-    LOG(DEBUG) << "Found device " << frida_device_get_name(device);
+    LOG(DEBUG) << "Found device " << frida_device_get_name(device) << ", type: " << frida_device_get_dtype(device);
 
     if (frida_device_get_dtype(device) == FRIDA_DEVICE_TYPE_LOCAL) {
       mDevice = g_object_ref(device);

@@ -3,7 +3,7 @@
 //
 #pragma once
 
-#include "frida/include/frida-core.h"
+#include "frida-core.h"
 #include "utils/Macros.h"
 #include "utils/Status.h"
 #include "utils/SmallMap.h"

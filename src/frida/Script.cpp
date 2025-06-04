@@ -18,6 +18,12 @@ constexpr std::string_view kRpcIdentifier = "frida:rpc";
 constexpr std::string_view kRpcResultOk = "ok";
 constexpr std::string_view kRpcResultError = "error";
 
+#include "java_runtime.js.h"
+
+static bool LoadJavaRuntimeIfNeeded(std::string_view source) {
+  return source.find("Java.") != std::string_view::npos;
+}
+
 namespace frida {
 Script::Script(std::string_view name, std::string_view source,
                FridaSession *session)
@@ -47,10 +53,22 @@ void Script::Load() {
     }
     frida_script_options_set_runtime(options, FRIDA_SCRIPT_RUNTIME_QJS);
 
-    mScript = frida_session_create_script_sync(mSession, mSource.c_str(),
-                                               options, nullptr, &error);
+    char *source = const_cast<char *>(mSource.data());
+    char *buffer = nullptr;
+    if (LoadJavaRuntimeIfNeeded(mSource)) {
+      LOG(INFO) << "Loading Java runtime for script " << mName;
+
+      size_t needed_size = kScriptSource.size() + mSource.size() + 5;
+      buffer = new char[needed_size];
+      snprintf(buffer, needed_size, "%s\n%s", kScriptSource.data(),
+               mSource.data());
+      source = buffer;
+    }
+    mScript = frida_session_create_script_sync(mSession, source, options,
+                                               nullptr, &error);
+    delete[] buffer;
     if (mScript == nullptr || error != nullptr) {
-      LOG(ERROR) << "Failed to load script " << mName << "@" << this;
+      LOG(ERROR) << "Failed to create script " << mName << "@" << this;
       if (error != nullptr) {
         LOG(ERROR) << "error: " << error->code << " -> " << error->message;
       }
@@ -97,18 +115,21 @@ void Script::RemoveCallback(std::string_view name) {
   }
 }
 
-RpcResult Script::RpcCallSync(std::string_view method, const std::vector<std::string>& param_json) {
+RpcResult Script::RpcCallSync(std::string_view method,
+                              const std::vector<std::string> &param_json) {
   CHECK(!method.empty());
 
   int const call_id = SendRpcCall(method, param_json);
   if (call_id < 0) {
-    return std::unexpected(nlohmann::json{{"error", "Failed to send RPC call"}});
+    return std::unexpected(
+        nlohmann::json{{"error", "Failed to send RPC call"}});
   }
 
   return WaitForRpcCallResult(call_id);
 }
 
-int Script::SendRpcCall(std::string_view method, const std::vector<std::string>& param_json) {
+int Script::SendRpcCall(std::string_view method,
+                        const std::vector<std::string> &param_json) {
   CHECK(!method.empty());
 
   std::string message;
@@ -116,13 +137,13 @@ int Script::SendRpcCall(std::string_view method, const std::vector<std::string>&
 
   int const call_id = mRpcCallID++;
   message.append("[\"")
-    .append(kRpcIdentifier)
-    .append("\",")
-    .append(std::to_string(call_id))
-    .append(R"(,"call",")")
-    .append(method)
-    .append("\",[");
-  
+      .append(kRpcIdentifier)
+      .append("\",")
+      .append(std::to_string(call_id))
+      .append(R"(,"call",")")
+      .append(method)
+      .append("\",[");
+
   for (const auto &param : param_json) {
     message.append(param).append(",");
   }
@@ -140,9 +161,8 @@ int Script::SendRpcCall(std::string_view method, const std::vector<std::string>&
 
 RpcResult Script::WaitForRpcCallResult(int call_id) {
   std::unique_lock<std::mutex> lock(mRpcCallMutex);
-  mRpcCallCondVar.wait(lock, [this, call_id] {
-    return mRpcCallResults.Contains(call_id);
-  });
+  mRpcCallCondVar.wait(
+      lock, [this, call_id] { return mRpcCallResults.Contains(call_id); });
 
   auto result = std::move(mRpcCallResults[call_id]);
   mRpcCallResults.Erase(call_id);
@@ -188,7 +208,7 @@ bool Script::MaybeProcessSystemMessage(nlohmann::json &msg) {
   }
 
   const auto &type = msg["type"];
-  if(type == "log") {
+  if (type == "log") {
     WriteLogMessage(msg);
     return true;
   }

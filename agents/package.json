@@ -5,7 +5,7 @@
   "private": true,
   "main": "agent.ts",
   "scripts": {
-    "build_function_tracer": "frida-compile FunctionTracer.ts -S -o ../src/plugins/functoin_tracer/FunctionTracer.js",
+    "build_function_tracer": "frida-compile FunctionTracer.ts -S -o ../src/plugins/function_tracer/FunctionTracer.js",
     "buildssl": "frida-compile ssl_logger.ts -c -o ../output/ssl_logger.js",
     "buildframe": "frida-compile frame_tracer.ts -c -o ../output/frame_tracer.js",
     "watch_function_tracer": "frida-compile FunctionTracer.ts -w -S -o ../output/agent.js",

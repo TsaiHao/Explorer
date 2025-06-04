@@ -14,18 +14,17 @@ if (TARGET_ANDROID)
     include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
 endif ()
 
+set(LOCAL_CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(${LOCAL_CMAKE_MODULE_PATH}/EmbedJs.cmake)
+
 set(SOURCES
         src/main.cpp
         src/Application.cpp
         src/Application.h
 )
+add_executable(${PROJECT_NAME} ${SOURCES})
 
-set(PLUGIN_SOURCES
-        src/plugins/Plugin.h
-        src/plugins/Plugin.cpp
-        src/plugins/function_tracer/FunctionTracer.h
-        src/plugins/function_tracer/FunctionTracer.cpp
-)
+add_subdirectory(src)
 
 set(FRIDA_WRAPPER_SOURCES
         src/frida/Device.cpp
@@ -47,7 +46,7 @@ set(UTILS_SOURCES
         src/utils/Macros.h
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES} ${FRIDA_WRAPPER_SOURCES} ${UTILS_SOURCES})
+target_sources(${PROJECT_NAME} PRIVATE ${FRIDA_WRAPPER_SOURCES} ${UTILS_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 
 if (ENABLE_DEBUG)

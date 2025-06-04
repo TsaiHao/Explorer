@@ -18,5 +18,6 @@ public:
 private:
   Status LoadScript(frida::Session* session);
 
+  std::string mScriptName;
   frida::Script* mScript {nullptr};
 };

@@ -1,0 +1,19 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "android-arm7-debug",
+            "displayName": "Android ARM7 Debug Build",
+            "description": "Build for Android ARM7 architecture in debug mode",
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Ninja",
+            "toolchainFile": "$env{ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake",
+            "cacheVariables": {
+                "ANDROID_ABI": "armeabi-v7a",
+                "ANDROID_PLATFORM": "android-31",
+                "ENABLE_DEBUG": "ON",
+                "TARGET_ANDROID": "ON"
+            }
+        }
+    ]
+}

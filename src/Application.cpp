@@ -11,12 +11,11 @@
 #include <string>
 using nlohmann::json;
 
-constexpr std::string_view kPidKey = "pid";
 constexpr std::string_view kAppNameKey = "app";
-constexpr std::string_view kScriptsKey = "script_source";
+constexpr std::string_view kPidKey = "pid";
 constexpr std::string_view kScriptFilesKey = "scripts";
+constexpr std::string_view kScriptsKey = "script_source";
 constexpr std::string_view kTracerKey = "trace";
-constexpr std::string_view kDebugJsPath = "/data/local/tmp/debug.js";
 
 // todo: move to frida::Session class
 static Status LoadUserScriptsFromConfig(frida::Session *session,
