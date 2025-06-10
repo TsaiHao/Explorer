@@ -58,7 +58,8 @@ void Session::Detach() {
   mAttaching = false;
 }
 
-Status Session::LoadTracerFromConfig(const nlohmann::json &config) {
+Status Session::LoadPlugins(const nlohmann::json &config) {
+  mPlugins = plugin::MakePlugin(this, config);
   return Ok();
 }
 

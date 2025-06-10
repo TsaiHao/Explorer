@@ -25,4 +25,6 @@ std::vector<ProcessInfo> ListAllRunningProcesses();
 std::optional<ProcessInfo> FindProcessByPid(pid_t pid);
 
 std::optional<ProcessInfo> FindProcessByName(std::string_view name);
+
+std::string DemangleSymbol(std::string_view symbol);
 } // namespace utils

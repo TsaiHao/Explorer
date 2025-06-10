@@ -41,7 +41,7 @@ function(embed_js_file)
             COMMENT "Embedding JavaScript file ${JS_FILE_NAME} into C++ header ${OUTPUT_NAME}"
             VERBATIM
     )
-    
+
     get_filename_component(JS_FILE_BASE_NAME ${JS_FILE_NAME} NAME_WE)
     add_custom_target(embed_js_${JS_FILE_BASE_NAME} ALL DEPENDS ${OUTPUT_PATH})
 

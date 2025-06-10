@@ -11,3 +11,4 @@ var bridge=function(){const{pageSize:e,pointerSize:t}=Process;class n{constructo
 Object.defineProperty(globalThis, 'Java', {
     value: bridge,
 });
+// source code copied from frida-tools 17.0.7

@@ -116,7 +116,7 @@ void Script::RemoveCallback(std::string_view name) {
 }
 
 RpcResult Script::RpcCallSync(std::string_view method,
-                              const std::vector<std::string> &param_json) {
+                              std::string_view param_json) {
   CHECK(!method.empty());
 
   int const call_id = SendRpcCall(method, param_json);
@@ -129,7 +129,7 @@ RpcResult Script::RpcCallSync(std::string_view method,
 }
 
 int Script::SendRpcCall(std::string_view method,
-                        const std::vector<std::string> &param_json) {
+                        std::string_view param_json) {
   CHECK(!method.empty());
 
   std::string message;
@@ -142,16 +142,9 @@ int Script::SendRpcCall(std::string_view method,
       .append(std::to_string(call_id))
       .append(R"(,"call",")")
       .append(method)
-      .append("\",[");
-
-  for (const auto &param : param_json) {
-    message.append(param).append(",");
-  }
-
-  if (!param_json.empty()) {
-    message.pop_back();
-  }
-  message.append("]]");
+      .append("\",")
+      .append(param_json.empty() ? "[]" : param_json)
+      .append("]");
 
   frida_script_post(mScript, message.c_str(), nullptr);
   LOG(DEBUG) << "Sent RPC call " << message << " with ID " << call_id;

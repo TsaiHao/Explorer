@@ -2,6 +2,7 @@
 // Created by Hao, Zaijun on 2025/4/27.
 //
 #include "Application.h"
+#include "frida-core.h"
 #include "frida/Device.h"
 #include "frida/Script.h"
 #include "nlohmann/json.hpp"
@@ -16,6 +17,13 @@ constexpr std::string_view kPidKey = "pid";
 constexpr std::string_view kScriptFilesKey = "scripts";
 constexpr std::string_view kScriptsKey = "script_source";
 constexpr std::string_view kTracerKey = "trace";
+
+static void DisableSELinuxIfNeeded() {
+#ifdef TARGET_ANDROID
+  // Turn SELinux to permissive mode
+  frida_selinux_patch_policy();
+#endif
+}
 
 // todo: move to frida::Session class
 static Status LoadUserScriptsFromConfig(frida::Session *session,
@@ -62,6 +70,12 @@ static Status LoadUserScriptsFromConfig(frida::Session *session,
   LOG(INFO) << "Loaded user scripts";
   return Ok();
 }
+
+static Status LoadFunctionTracerFromConfig(frida::Session *session,
+                                                       const json &config) {
+  return session->LoadPlugins(config);
+}
+
 
 static Status LoadUserScriptFilsFromConfig(frida::Session *session,
                                            const json &config) {
@@ -120,9 +134,6 @@ private:
   Status BuildSessionFromConfig(const json &session_config);
   Status AttachProcessFromConfig(const json &config);
 
-  Status LoadFunctionTracerFromConfig(frida::Session *session,
-                                      const json &config);
-
   struct LoopDeleter {
     void operator()(GMainLoop *loop) const noexcept { g_main_loop_unref(loop); }
   };
@@ -144,6 +155,7 @@ static void PrintAllProcessesOnExit() {
 Application::Impl::Impl(std::string_view config)
     : mOriginalConfig(json::parse(config)) {
   frida_init();
+  DisableSELinuxIfNeeded();
 
   mLoop =
       std::unique_ptr<GMainLoop, LoopDeleter>(g_main_loop_new(nullptr, TRUE));
@@ -167,7 +179,7 @@ Application::Impl::Impl(std::string_view config)
 }
 
 Application::Impl::~Impl() {
-  // Deconstructing order matters here
+  // Note: Deconstructing order matters here
   mDevice.reset();
   mLoop.reset();
 }
@@ -222,15 +234,6 @@ Status Application::Impl::BuildSessionFromConfig(const json &session_config) {
   CHECK_STATUS(LoadFunctionTracerFromConfig(session, session_config));
 
   return Ok();
-}
-
-Status Application::Impl::LoadFunctionTracerFromConfig(frida::Session *session,
-                                                       const json &config) {
-  if (!config.contains(kTracerKey)) {
-    return Ok();
-  }
-
-  return session->LoadTracerFromConfig(config[kTracerKey]);
 }
 
 Application::Application(

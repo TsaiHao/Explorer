@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <vector>
 
+#include <cxxabi.h>
+
 static bool IsNumeric(std::string_view str) {
   return !str.empty() && std::ranges::all_of(str, ::isdigit);
 }
@@ -147,5 +149,15 @@ std::optional<ProcessInfo> FindProcessByName(std::string_view name) {
     return process;
   }
   return std::nullopt;
+}
+
+std::string DemangleSymbol(std::string_view symbol) {
+  int status = 0;
+  std::unique_ptr<char, void(*)(void*)> result {
+    abi::__cxa_demangle(symbol.data(), nullptr, nullptr, &status),
+    std::free
+  };
+  
+  return status == 0 ? std::string(result.get()) : std::string(symbol);
 }
 } // namespace utils

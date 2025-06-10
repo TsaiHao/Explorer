@@ -40,9 +40,9 @@ public:
   void AddMessageCallback(std::string_view name, OnMessageCallback callback);
   void RemoveCallback(std::string_view name);
 
-  RpcResult RpcCallSync(std::string_view method, const std::vector<std::string>& param_json);
+  RpcResult RpcCallSync(std::string_view method, std::string_view param_json);
 
-  int SendRpcCall(std::string_view method, const std::vector<std::string>& param_json);
+  int SendRpcCall(std::string_view method, std::string_view param_json);
   RpcResult WaitForRpcCallResult(int call_id);
 
 private:

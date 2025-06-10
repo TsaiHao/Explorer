@@ -1,11 +1,15 @@
 #pragma once
 #include "nlohmann/json.hpp"
 #include "utils/Status.h"
-#include "frida/Session.h"
 
 #include <expected>
 #include <memory>
 
+namespace frida {
+class Session;
+}
+
+namespace plugin {
 class Plugin {
 public:
   virtual ~Plugin() = default;
@@ -17,5 +21,7 @@ public:
   virtual Status Deactivate() = 0;
 };
 
-std::expected<std::unique_ptr<Plugin>, Status>
-MakePlugin(const nlohmann::json &json);
+std::vector<std::unique_ptr<Plugin>> MakePlugin(frida::Session *session,
+                                   const nlohmann::json &json);
+
+} // namespace plugin

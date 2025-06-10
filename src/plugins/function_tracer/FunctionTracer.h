@@ -3,6 +3,7 @@
 #include "../Plugin.h"
 #include "frida/Script.h"
 
+namespace plugin {
 class FunctionTracer: public Plugin {
 public:
   FunctionTracer();
@@ -15,9 +16,10 @@ public:
 
   Status Deactivate() override;
 
-private:
-  Status LoadScript(frida::Session* session);
+  static std::string_view Identifier() { return "trace"; }
 
-  std::string mScriptName;
-  frida::Script* mScript {nullptr};
+  class Impl;
+private:
+  std::unique_ptr<Impl> mImpl;
 };
+}

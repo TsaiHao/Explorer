@@ -1,7 +1,6 @@
 [
   {
-    "app": "com.amazon.tv.localgallery",
-    "scripts": "/data/local/tmp/debug.js",
+    "app": "com.amazon.firetv.youtube",
     "trace": [
       {
         "type": "native",

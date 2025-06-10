@@ -2,8 +2,10 @@
 
 #include "Script.h"
 #include "frida/include/frida-core.h"
-#include "nlohmann/json.hpp"
 #include "utils/SmallMap.h"
+#include "plugins/Plugin.h"
+
+#include "nlohmann/json.hpp"
 
 #include <atomic>
 
@@ -26,7 +28,7 @@ public:
   void Resume();
   void Detach();
 
-  Status LoadTracerFromConfig(const nlohmann::json &config);
+  Status LoadPlugins(const nlohmann::json &config);
 
   Script *GetScript(std::string_view name) const;
   pid_t GetPid() const { return mPid; }
@@ -34,8 +36,10 @@ public:
 private:
   FridaSession *mSession{nullptr};
   std::atomic<bool> mAttaching{false};
+
   pid_t mPid{0};
   SmallMap<std::string, std::unique_ptr<Script>> mScripts;
+  std::vector<std::unique_ptr<plugin::Plugin>> mPlugins;
 };
 
 } // namespace frida

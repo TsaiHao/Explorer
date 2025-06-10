@@ -26,26 +26,6 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 
 add_subdirectory(src)
 
-set(FRIDA_WRAPPER_SOURCES
-        src/frida/Device.cpp
-        src/frida/Device.h
-        src/frida/Script.cpp
-        src/frida/Script.h
-        src/frida/Session.cpp
-        src/frida/Session.h
-)
-
-set(UTILS_SOURCES
-        src/utils/Log.cpp
-        src/utils/Log.h
-        src/utils/System.cpp
-        src/utils/System.h
-        src/utils/Status.cpp
-        src/utils/Status.h
-        src/utils/SmallMap.h
-        src/utils/Macros.h
-)
-
 target_sources(${PROJECT_NAME} PRIVATE ${FRIDA_WRAPPER_SOURCES} ${UTILS_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 
@@ -56,14 +36,6 @@ endif ()
 if (TARGET_ANDROID)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TARGET_ANDROID)
     target_link_libraries(${PROJECT_NAME} PRIVATE log)
-else ()
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-            resolv
-            "-framework CoreFoundation"
-            "-framework IOKit"
-            "-framework AppKit"
-            "-framework Cocoa"
-            "-framework Security")
 endif ()
 
 add_subdirectory(third_party)
