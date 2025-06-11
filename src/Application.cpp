@@ -9,6 +9,7 @@
 #include "utils/Log.h"
 #include "utils/Status.h"
 #include "utils/System.h"
+#include <cstdlib>
 #include <string>
 using nlohmann::json;
 
@@ -16,6 +17,7 @@ constexpr std::string_view kAppNameKey = "app";
 constexpr std::string_view kPidKey = "pid";
 constexpr std::string_view kScriptFilesKey = "scripts";
 constexpr std::string_view kScriptsKey = "script_source";
+constexpr std::string_view kSessionsKey = "sessions";
 constexpr std::string_view kTracerKey = "trace";
 
 static void DisableSELinuxIfNeeded() {
@@ -152,8 +154,7 @@ static void PrintAllProcessesOnExit() {
   });
 }
 
-Application::Impl::Impl(std::string_view config)
-    : mOriginalConfig(json::parse(config)) {
+Application::Impl::Impl(std::string_view config) {
   frida_init();
   DisableSELinuxIfNeeded();
 
@@ -161,15 +162,22 @@ Application::Impl::Impl(std::string_view config)
       std::unique_ptr<GMainLoop, LoopDeleter>(g_main_loop_new(nullptr, TRUE));
   mDevice = std::make_unique<frida::Device>();
 
+  mOriginalConfig = json::parse(config);
+  if (!mOriginalConfig.contains(kSessionsKey)) {
+    LOG(FATAL) << "Configuration must contain 'sessions' key, exiting";
+    exit(EXIT_FAILURE);
+  }
+  mOriginalConfig = mOriginalConfig[kSessionsKey];
+  if (!mOriginalConfig.is_array()) {
+    LOG(FATAL) << "Configuration 'sessions' must be an array, exiting";
+    exit(EXIT_FAILURE);
+  }
+
   Status status;
-  if (mOriginalConfig.is_object()) {
-    status = BuildSessionFromConfig(mOriginalConfig);
-  } else if (mOriginalConfig.is_array()) {
-    for (auto const &session_config : mOriginalConfig) {
-      status = BuildSessionFromConfig(session_config);
-      if (!status.Ok()) {
-        break;
-      }
+  for (auto const &session_config : mOriginalConfig) {
+    status = BuildSessionFromConfig(session_config);
+    if (!status.Ok()) {
+      break;
     }
   }
 
@@ -223,7 +231,12 @@ Status Application::Impl::AttachProcessFromConfig(const json &config) {
 }
 
 Status Application::Impl::BuildSessionFromConfig(const json &session_config) {
-  CHECK_STATUS(AttachProcessFromConfig(session_config));
+  if (!AttachProcessFromConfig(session_config).Ok()) {
+    LOG(FATAL) << "Failed to attach process from config: "
+               << session_config.dump();
+    PrintAllProcessesOnExit();
+    exit(EXIT_FAILURE);
+  }
 
   const pid_t pid = mProcessInfos.back().Pid;
   auto *session = mDevice->GetSession(pid);

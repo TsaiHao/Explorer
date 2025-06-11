@@ -1,21 +1,37 @@
-[
-  {
-    "app": "com.amazon.firetv.youtube",
-    "trace": [
-      {
-        "type": "native",
-        "namespace": "android",
-        "class": "MediaCodec",
-        "method": "start",
-        "backtrace": true
-      },
-      {
-        "type": "java",
-        "class": "android.media.MediaCodec",
-        "method": "start",
-        "arguments": true,
-        "log": true
-      }
-    ]
-  }
-]
+{
+  "$schema": "https://raw.githubusercontent.com/TsaiHao/Explorer/refs/heads/main/tools/config-schema.json",
+  "sessions": [
+    {
+      "app": "com.google.android.exoplayer2.demo",
+      "trace": [
+        {
+          "type": "native",
+          "namespace": "android",
+          "class": "MediaCodec",
+          "method": "start",
+          "backtrace": true
+        },
+        {
+          "type": "java",
+          "class": "android.media.MediaCodec",
+          "method": "start",
+          "arguments": true,
+          "log": true
+        }
+      ]
+    },
+    {
+      "app": "mediaserver",
+      "spawn": true,
+      "trace": [
+        {
+          "type": "native",
+          "namespace": "android",
+          "class": "MediaCodec",
+          "method": "stop",
+          "backtrace": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Explorer Configuration Schema",
+    "description": "Schema for the configuration of the Explorer tool.",
+    "type": "array",
+    "properties": {
+        "sessions": {
+            "type": "array",
+            "description": "List of application sessions to configure.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "app": {
+                        "type": "string",
+                        "description": "The application package name to attach."
+                    },
+                    "spawn": {
+                        "type": "boolean",
+                        "description": "Whether to spawn the application if it is not already running."
+                    },
+                    "scripts": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "description": "Path to a script file to execute."
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "description": "List of script files to execute."
+                                },
+                                "description": "List of script files to execute."
+                            }
+                        ]
+                    },
+                    "script_source": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "description": "inline script source code."
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "List of inline script source code lines."
+                            }
+                        ]
+                    },
+                    "trace": {
+                        "type": "array",
+                        "description": "List of trace configurations for the application.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "native",
+                                        "java"
+                                    ],
+                                    "description": "The type of trace to perform."
+                                },
+                                "namespace": {
+                                    "type": "string",
+                                    "description": "The namespace for native traces (optional for Java traces)."
+                                },
+                                "class": {
+                                    "type": "string",
+                                    "description": "The class to trace."
+                                },
+                                "method": {
+                                    "type": "string",
+                                    "description": "The method to trace."
+                                },
+                                "arguments": {
+                                    "type": "boolean",
+                                    "description": "Whether to log method arguments (optional, default is false)."
+                                },
+                                "log": {
+                                    "type": "boolean",
+                                    "description": "Whether to log the trace output (optional, default is false)."
+                                },
+                                "backtrace": {
+                                    "type": "boolean",
+                                    "description": "Whether to include a backtrace in the trace output (optional, default is false)."
+                                }
+                            },
+                            "required": [
+                                "type"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "app"
+                ]
+            }
+        }
+    }
+}
