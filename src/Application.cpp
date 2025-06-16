@@ -74,10 +74,9 @@ static Status LoadUserScriptsFromConfig(frida::Session *session,
 }
 
 static Status LoadFunctionTracerFromConfig(frida::Session *session,
-                                                       const json &config) {
+                                           const json &config) {
   return session->LoadPlugins(config);
 }
-
 
 static Status LoadUserScriptFilsFromConfig(frida::Session *session,
                                            const json &config) {
@@ -251,9 +250,7 @@ Status Application::Impl::BuildSessionFromConfig(const json &session_config) {
 
 Application::Application(
     std::string_view config) // NOLINT(*-unnecessary-value-param)
-    : mImpl(std::make_unique<Impl>(config)) {
-  LOG(INFO) << "Creating Application " << this;
-}
+    : mImpl(std::make_unique<Impl>(config)) {}
 
 Application::~Application() { LOG(INFO) << "Destroying Application" << this; }
 

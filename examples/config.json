@@ -5,31 +5,22 @@
       "app": "com.google.android.exoplayer2.demo",
       "trace": [
         {
-          "type": "native",
-          "namespace": "android",
-          "class": "MediaCodec",
-          "method": "start",
-          "backtrace": true
+          "type": "java",
+          "class": "com.google.android.exoplayer2.drm.HttpMediaDrmCallback",
+          "method": "executeKeyRequest",
+          "arguments": true
         },
         {
           "type": "java",
-          "class": "android.media.MediaCodec",
-          "method": "start",
-          "arguments": true,
-          "log": true
-        }
-      ]
-    },
-    {
-      "app": "mediaserver",
-      "spawn": true,
-      "trace": [
+          "class": "com.google.android.exoplayer2.drm.HttpMediaDrmCallback",
+          "method": "<init>",
+          "arguments": true
+        },
         {
-          "type": "native",
-          "namespace": "android",
-          "class": "MediaCodec",
-          "method": "stop",
-          "backtrace": true
+          "type": "java",
+          "class": "com.google.android.exoplayer2.drm.ExoMediaDrm$KeyRequest",
+          "method": "getLicenseServerUrl",
+          "arguments": true
         }
       ]
     }

@@ -13,12 +13,12 @@
 
 using nlohmann::json;
 
+static constexpr std::string_view kScriptName = "_TracerScript";
+
 namespace plugin {
 class FunctionTracer::Impl {
 public:
-  Impl()
-      : mScriptName("Tracer@" +
-                    std::to_string(reinterpret_cast<uintptr_t>(this))) {}
+  Impl() = default;
   virtual ~Impl() = default;
 
   virtual Status Init(frida::Session *session, const nlohmann::json &) {
@@ -32,13 +32,19 @@ protected:
   Status LoadScript(frida::Session *session) {
     CHECK(mScript == nullptr);
 
-    auto status = session->CreateScript(mScriptName, kScriptSource);
+    auto *script = session->GetScript(kScriptName);
+    if (script != nullptr) {
+      mScript = script;
+      return Ok();
+    }
+
+    auto status = session->CreateScript(kScriptName, kScriptSource);
     if (!status.Ok()) {
       LOG(ERROR) << "Failed to create script: " << status.Message();
       return status;
     }
 
-    auto *script = session->GetScript(mScriptName);
+    script = session->GetScript(kScriptName);
     CHECK(script != nullptr);
 
     script->Load();
@@ -57,7 +63,6 @@ protected:
     return trace_config;
   }
 
-  std::string mScriptName;
   frida::Script *mScript{nullptr};
 };
 
