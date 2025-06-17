@@ -4,15 +4,15 @@
 #pragma once
 
 #include "frida-core.h"
-#include "utils/Macros.h"
-#include "utils/Status.h"
-#include "utils/SmallMap.h"
 #include "nlohmann/json.hpp"
+#include "utils/Macros.h"
+#include "utils/SmallMap.h"
+#include "utils/Status.h"
 
-#include <condition_variable>
-#include <functional>
 #include <atomic>
+#include <condition_variable>
 #include <expected>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -65,7 +65,7 @@ private:
   std::unordered_map<std::string, OnMessageCallback> mCallbacks;
   FridaSession *mSession{nullptr};
 
-  std::atomic<int> mRpcCallID {0};
+  std::atomic<int> mRpcCallID{0};
   SmallMap<int, RpcResult> mRpcCallResults;
   std::condition_variable mRpcCallCondVar;
   std::mutex mRpcCallMutex;

@@ -2,25 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/TsaiHao/Explorer/refs/heads/main/tools/config-schema.json",
   "sessions": [
     {
-      "app": "com.google.android.exoplayer2.demo",
+      "app": "com.amazon.tv.localgallery",
       "trace": [
         {
           "type": "java",
-          "class": "com.google.android.exoplayer2.drm.HttpMediaDrmCallback",
-          "method": "executeKeyRequest",
-          "arguments": true
-        },
-        {
-          "type": "java",
-          "class": "com.google.android.exoplayer2.drm.HttpMediaDrmCallback",
-          "method": "<init>",
-          "arguments": true
-        },
-        {
-          "type": "java",
-          "class": "com.google.android.exoplayer2.drm.ExoMediaDrm$KeyRequest",
-          "method": "getLicenseServerUrl",
-          "arguments": true
+          "class": "android.media.MediaCodec",
+          "method": "configure",
+          "arguments": true,
+          "backtrace": true
         }
       ]
     }

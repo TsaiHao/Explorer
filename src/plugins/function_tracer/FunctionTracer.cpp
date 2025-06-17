@@ -153,8 +153,9 @@ private:
         continue;
       }
 
-      auto const& address_hex = symbol["address"].get_ref<const std::string&>();
-      auto const& address = std::stoll(address_hex, nullptr, 16);
+      auto const &address_hex =
+          symbol["address"].get_ref<const std::string &>();
+      auto const &address = std::stoll(address_hex, nullptr, 16);
 
       addrs.push_back(static_cast<intptr_t>(address));
       std::string identifier =
@@ -212,7 +213,8 @@ public:
       return NotFound("No java symbols resolved");
     }
 
-    LOG(DEBUG) << "Resolved " << symbols.value().size() << " java symbols: " << symbols.value().dump(1);
+    LOG(DEBUG) << "Resolved " << symbols.value().size()
+               << " java symbols: " << symbols.value().dump(1);
     ComposeTraceArguments(symbols.value(), config);
 
     return Ok();

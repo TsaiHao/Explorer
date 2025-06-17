@@ -21,12 +21,13 @@ static std::unique_ptr<Plugin> MakePluginInternal(frida::Session *session,
 }
 
 std::vector<std::unique_ptr<Plugin>> MakePlugin(frida::Session *session,
-                                   const nlohmann::json &json) {
+                                                const nlohmann::json &json) {
   std::vector<std::unique_ptr<Plugin>> plugins;
   if (json.contains(FunctionTracer::Identifier())) {
     for (const auto &plugin_config :
          json[FunctionTracer::Identifier()].items()) {
-      auto plugin = MakePluginInternal<FunctionTracer>(session, plugin_config.value());
+      auto plugin =
+          MakePluginInternal<FunctionTracer>(session, plugin_config.value());
       if (plugin != nullptr) {
         plugins.push_back(std::move(plugin));
       } else {

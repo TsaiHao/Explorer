@@ -11,6 +11,7 @@ enum class StatusCode : int8_t {
   kInvalidOperation,
   kInvalidState,
   kSdkFailure,
+  kTimeout,
 };
 
 class Status {
@@ -54,4 +55,7 @@ inline Status InvalidState(std::string_view message) {
 }
 inline Status SdkFailure(std::string_view message) {
   return {StatusCode::kSdkFailure, message};
+}
+inline Status Timeout(std::string_view message) {
+  return {StatusCode::kTimeout, message};
 }

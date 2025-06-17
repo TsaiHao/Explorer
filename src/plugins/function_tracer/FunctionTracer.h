@@ -4,13 +4,13 @@
 #include "frida/Script.h"
 
 namespace plugin {
-class FunctionTracer: public Plugin {
+class FunctionTracer : public Plugin {
 public:
   FunctionTracer();
 
   ~FunctionTracer() override;
 
-  Status Init(frida::Session* session, const nlohmann::json &config) override;
+  Status Init(frida::Session *session, const nlohmann::json &config) override;
 
   Status Activate() override;
 
@@ -19,7 +19,8 @@ public:
   static std::string_view Identifier() { return "trace"; }
 
   class Impl;
+
 private:
   std::unique_ptr<Impl> mImpl;
 };
-}
+} // namespace plugin

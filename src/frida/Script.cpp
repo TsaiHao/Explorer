@@ -128,8 +128,7 @@ RpcResult Script::RpcCallSync(std::string_view method,
   return WaitForRpcCallResult(call_id);
 }
 
-int Script::SendRpcCall(std::string_view method,
-                        std::string_view param_json) {
+int Script::SendRpcCall(std::string_view method, std::string_view param_json) {
   CHECK(!method.empty());
 
   std::string message;

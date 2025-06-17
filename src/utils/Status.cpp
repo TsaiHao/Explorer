@@ -28,7 +28,13 @@ std::string_view GetCodeString(StatusCode code) {
 Status::Status() = default;
 
 Status::Status(StatusCode code, std::string_view message)
-    : mCode(code), mMessage(message) {}
+    : mCode(code)
+#ifdef EXP_DEBUG
+      ,
+      mMessage(message)
+#endif
+{
+}
 
 Status::~Status() = default;
 

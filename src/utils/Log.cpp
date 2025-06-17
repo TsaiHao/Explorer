@@ -1,10 +1,9 @@
 #include "Log.h"
 #include "utils/Macros.h"
-
 #ifdef TARGET_ANDROID
 #include "android/log.h"
-#include <unistd.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 #endif
 #ifdef EXP_DEBUG
 #include <iostream>
@@ -12,16 +11,16 @@
 
 #include <thread>
 
-constexpr std::string_view TAG = "Explorer";
+constexpr std::string_view kTag = "Explorer";
 thread_local static std::string thread_id_str = []() {
-    std::ostringstream oss;
-    #ifdef TARGET_ANDROID
-        // Get the actual Linux thread ID (always positive)
-        oss << syscall(SYS_gettid);
-    #else
-        oss << std::this_thread::get_id();
-    #endif
-    return oss.str();
+  std::ostringstream oss;
+#ifdef TARGET_ANDROID
+  // Get the actual Linux thread ID (always positive)
+  oss << syscall(SYS_gettid);
+#else
+  oss << std::this_thread::get_id();
+#endif
+  return oss.str();
 }();
 
 Logger::Logger(const LogLevel level, const char *file, const int lineno)
@@ -34,7 +33,7 @@ Logger::~Logger() {
 #ifdef TARGET_ANDROID
   // see https://developer.android.com/ndk/reference/group/logging
   int log_level = static_cast<int>(mLevel) + 3;
-  __android_log_write(log_level, TAG.data(), mStream.str().c_str());
+  __android_log_write(log_level, kTag.data(), mStream.str().c_str());
 #endif
 
 #ifdef EXP_DEBUG

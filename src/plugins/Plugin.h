@@ -14,7 +14,8 @@ class Plugin {
 public:
   virtual ~Plugin() = default;
 
-  virtual Status Init(frida::Session* session, const nlohmann::json &config) = 0;
+  virtual Status Init(frida::Session *session,
+                      const nlohmann::json &config) = 0;
 
   virtual Status Activate() = 0;
 
@@ -22,6 +23,6 @@ public:
 };
 
 std::vector<std::unique_ptr<Plugin>> MakePlugin(frida::Session *session,
-                                   const nlohmann::json &json);
+                                                const nlohmann::json &json);
 
 } // namespace plugin

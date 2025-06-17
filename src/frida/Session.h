@@ -2,8 +2,8 @@
 
 #include "Script.h"
 #include "frida/include/frida-core.h"
-#include "utils/SmallMap.h"
 #include "plugins/Plugin.h"
+#include "utils/SmallMap.h"
 
 #include "nlohmann/json.hpp"
 
@@ -28,6 +28,8 @@ public:
   void Resume();
   void Detach();
 
+  Status LoadInlineScriptsFromConfig(const nlohmann::json &config);
+  Status LoadScriptFilesFromConfig(const nlohmann::json &config);
   Status LoadPlugins(const nlohmann::json &config);
 
   Script *GetScript(std::string_view name) const;

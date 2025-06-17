@@ -17,6 +17,20 @@ endif ()
 set(LOCAL_CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(${LOCAL_CMAKE_MODULE_PATH}/EmbedJs.cmake)
 
+add_library(COMMON_SETTINGS INTERFACE)
+target_include_directories(COMMON_SETTINGS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+if (TARGET_ANDROID)
+    target_compile_definitions(COMMON_SETTINGS INTERFACE TARGET_ANDROID)
+    target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror)
+    target_link_libraries(COMMON_SETTINGS INTERFACE log)
+endif ()
+
+if (ENABLE_DEBUG)
+    target_compile_definitions(COMMON_SETTINGS INTERFACE EXP_DEBUG)
+    target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror -g)
+endif ()
+
 set(SOURCES
         src/main.cpp
         src/Application.cpp
@@ -27,18 +41,11 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 add_subdirectory(src)
 
 target_sources(${PROJECT_NAME} PRIVATE ${FRIDA_WRAPPER_SOURCES} ${UTILS_SOURCES})
-target_include_directories(${PROJECT_NAME} PRIVATE src)
 
-if (ENABLE_DEBUG)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE EXP_DEBUG)
-endif ()
-
-if (TARGET_ANDROID)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE TARGET_ANDROID)
-    target_link_libraries(${PROJECT_NAME} PRIVATE log)
-endif ()
+target_link_libraries(${PROJECT_NAME} PRIVATE COMMON_SETTINGS)
 
 add_subdirectory(third_party)
 target_link_libraries(${PROJECT_NAME} PRIVATE DEPS)
 
 add_subdirectory(tools)
+add_subdirectory(tests)
