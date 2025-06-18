@@ -70,6 +70,7 @@ The config file is a JSON file containing an array of objects, each representing
 ```
 
 ## Roadmap
-- [ ] Support spawning new processes
+- [x] Support spawning new processes
+- [ ] Implment process crash and device lost handling
 - [ ] Add unit tests
 - [ ] Support reading script/config files from a http server

@@ -3,6 +3,7 @@
   "sessions": [
     {
       "app": "com.amazon.tv.localgallery",
+      "spawn": true,
       "trace": [
         {
           "type": "java",

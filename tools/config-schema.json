@@ -18,6 +18,10 @@
                         "type": "boolean",
                         "description": "Whether to spawn the application if it is not already running."
                     },
+                    "am_start": {
+                        "type": "string",
+                        "description": "The command to start the application using `am start`."
+                    },
                     "scripts": {
                         "oneOf": [
                             {

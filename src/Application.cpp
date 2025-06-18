@@ -4,23 +4,28 @@
 #include "Application.h"
 #include "frida-core.h"
 #include "frida/Device.h"
-#include "frida/Script.h"
 #include "nlohmann/json.hpp"
 #include "utils/Log.h"
 #include "utils/Status.h"
 #include "utils/System.h"
 #include <cstdlib>
-#include <string>
 using nlohmann::json;
 
 constexpr std::string_view kSessionsKey = "sessions";
 
-static void DisableSELinuxIfNeeded() {
+namespace {
+void AndroidEnvCheck() {
 #ifdef TARGET_ANDROID
+  // Check if the application is running as root
+  if (getuid() != 0) {
+    LOG(FATAL) << "This application must be run as root, exiting";
+    exit(EXIT_FAILURE);
+  }
   // Turn SELinux to permissive mode
   frida_selinux_patch_policy();
 #endif
 }
+} // namespace
 
 class Application::Impl {
 public:
@@ -39,20 +44,9 @@ private:
   std::unique_ptr<frida::Device> mDevice;
 };
 
-/*
-static void PrintAllProcessesOnExit() {
-  LOG(INFO) << "Listing all processes for debugging";
-  utils::EnumerateProcesses([](const utils::ProcessInfo &info) {
-    LOG(INFO) << "Process: " << info.Command << " (PID: " << info.Pid << ") - "
-              << info.CmdLine;
-    return false;
-  });
-}
-  */
-
 Application::Impl::Impl(std::string_view config) {
   frida_init();
-  DisableSELinuxIfNeeded();
+  AndroidEnvCheck();
 
   mLoop =
       std::unique_ptr<GMainLoop, LoopDeleter>(g_main_loop_new(nullptr, TRUE));
@@ -86,6 +80,7 @@ Application::Impl::~Impl() {
 void Application::Impl::Run() const {
   CHECK(mLoop != nullptr);
 
+  mDevice->Resume();
   if (g_main_loop_is_running(mLoop.get()) != 0) {
     g_main_loop_run(mLoop.get());
   }

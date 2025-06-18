@@ -24,8 +24,8 @@ public:
   Status BuildSessionsFromConfig(const nlohmann::json &config);
   Status Resume();
 
-  Status Attach(pid_t target_pid);
-  Status Detach(pid_t target_pid);
+  Status Attach(const utils::ProcessInfo& proc_info);
+  Status Detach(const utils::ProcessInfo& proc_info);
 
   Status SpawnAppAndAttach(std::string_view exec_name,
                            const std::vector<std::string> &args = {});
@@ -38,14 +38,17 @@ public:
 private:
   Status BuildOneSessionFromConfig(const nlohmann::json &session_config);
 
+  Status AttachToAppFromConfig(
+      const nlohmann::json &session_config);
+
   std::string mName;
   FridaDevice *mDevice{nullptr};
   FridaDeviceManager *mManager{nullptr};
 
-  SmallMap<pid_t, std::unique_ptr<Session>> mSessions;
   std::vector<pid_t> mPendingSpawns;
 
   const nlohmann::json *mConfig = nullptr;
-  std::vector<utils::ProcessInfo> mProcessInfos;
+
+  SmallMap<utils::ProcessInfo, std::unique_ptr<Session>> mSessions;
 };
 } // namespace frida

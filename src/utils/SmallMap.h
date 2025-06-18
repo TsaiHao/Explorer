@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
-#include <stdexcept>
+#include <functional>
 #include <utility>
 #include <vector>
 
@@ -141,6 +141,21 @@ public:
       return 1;
     }
     return 0;
+  }
+
+  PairType &Front() {
+    return Data.front();
+  }
+
+  PairType &Back() {
+    return Data.back();
+  }
+
+  void ForEach(
+      const std::function<void(const KeyType &, const ValueType &)> &Func) const {
+    for (const auto &pair : Data) {
+      Func(pair.first, pair.second);
+    }
   }
 
   void Swap(SmallMap &Other) noexcept { Data.swap(Other.Data); }

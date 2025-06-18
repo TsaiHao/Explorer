@@ -6,12 +6,15 @@
 #include "utils/Log.h"
 #include "utils/Status.h"
 #include "utils/Subprocess.h"
+#include "utils/System.h"
 #include "utils/Util.h"
 
 namespace frida {
 namespace {
 constexpr std::string_view kAppNameKey = "app";
 constexpr std::string_view kPidKey = "pid";
+constexpr std::string_view kAmStartKey = "am_start";
+constexpr std::string_view kSpawnKey = "spawn";
 
 class DeviceSpawnGatingGuard {
 public:
@@ -151,17 +154,20 @@ Status Device::Resume() {
   return Ok();
 }
 
-Status Device::Attach(pid_t target_pid) {
+Status Device::Attach(const utils::ProcessInfo& proc_info) {
   LOG(INFO) << "Attaching frida device " << mName << "@" << this
-            << " targeting " << target_pid;
+            << " targeting " << proc_info.CmdLine;
 
   CHECK(mDevice != nullptr);
-  CHECK(!mSessions.Contains(target_pid));
+  if (mSessions.Contains(proc_info) && mSessions.At(proc_info) != nullptr) {
+    LOG(INFO) << "Already attached to process " << proc_info.CmdLine << "(" << proc_info.Pid << ")";
+    return InvalidOperation("Multiple attachments");
+  }
 
   GError *error = nullptr;
 
   auto *session =
-      frida_device_attach_sync(mDevice, target_pid, nullptr, nullptr, &error);
+      frida_device_attach_sync(mDevice, proc_info.Pid, nullptr, nullptr, &error);
   if (error != nullptr) {
     LOG(ERROR) << "Error attaching frida device: " << error->message;
     frida_unref(session);
@@ -169,19 +175,20 @@ Status Device::Attach(pid_t target_pid) {
     return SdkFailure("frida attach api failed");
   }
 
-  mSessions[target_pid] = std::make_unique<Session>(target_pid, session);
+  mSessions[proc_info] = std::make_unique<Session>(proc_info.Pid, session);
 
   return Ok();
 }
 
 // todo: is this resume-able?
-Status Device::Detach(pid_t target_pid) {
-  LOG(INFO) << "Detaching frida device " << mName << "@" << this;
+Status Device::Detach(const utils::ProcessInfo& proc_info) {
+  LOG(INFO) << "Detaching frida device " << mName << "@" << this
+            << " targeting " << proc_info.CmdLine << "(" << proc_info.Pid << ")";
 
   CHECK(mDevice != nullptr);
-  CHECK(mSessions.Contains(target_pid));
+  CHECK(mSessions.Contains(proc_info));
 
-  mSessions.Erase(target_pid);
+  mSessions.Erase(proc_info);
   return Ok();
 }
 
@@ -218,7 +225,12 @@ Status Device::SpawnAppAndAttach(std::string_view exec_name,
   }
 
   mPendingSpawns.push_back(static_cast<pid_t>(spawn_pid));
-  return Attach(static_cast<pid_t>(spawn_pid));
+  auto proc_info = utils::FindProcessByPid(static_cast<pid_t>(spawn_pid));
+  if (!proc_info.has_value()) {
+    LOG(ERROR) << "Failed to find process by PID: " << spawn_pid;
+    return NotFound("Process not found by PID");
+  }
+  return Attach(*proc_info);
 }
 
 Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
@@ -288,7 +300,12 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
         frida_unref(spawn);
 
         mPendingSpawns.push_back(static_cast<pid_t>(pid));
-        return Attach(static_cast<pid_t>(pid));
+        auto proc_info = utils::FindProcessByPid(static_cast<pid_t>(pid));
+        if (!proc_info.has_value()) {
+          LOG(ERROR) << "Failed to find process by PID: " << pid;
+          return NotFound("Process not found by PID");
+        }
+        return Attach(*proc_info);
       }
 
       frida_device_resume_sync(mDevice, pid, nullptr, &error);
@@ -317,10 +334,18 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
 }
 
 Session *Device::GetSession(pid_t target_pid) const {
-  if (!mSessions.Contains(target_pid)) {
-    return nullptr;
-  }
-  return mSessions.At(target_pid).get();
+  Session *session = nullptr;
+
+  mSessions.ForEach(
+      [&target_pid, &session](const utils::ProcessInfo &proc_info,
+                              const std::unique_ptr<Session> &s) {
+        if (proc_info.Pid == target_pid) {
+          session = s.get();
+          return;
+        }
+      });
+
+  return session;
 }
 
 bool Device::EnumerateSessions(const EnumerateSessionCallback &callback) const {
@@ -334,11 +359,46 @@ bool Device::EnumerateSessions(const EnumerateSessionCallback &callback) const {
 }
 
 Status Device::BuildOneSessionFromConfig(const nlohmann::json &session_config) {
+  Status status = AttachToAppFromConfig(session_config);
+  if (!status.Ok()) {
+    LOG(ERROR) << "Failed to attach to app from config: " << status.Message();
+    return status;
+  }
+
+  // todo: fix this temporary workaround
+  Session *session = mSessions.Back().second.get();
+  CHECK(session != nullptr);
+
+  CHECK_STATUS(session->LoadInlineScriptsFromConfig(session_config));
+  CHECK_STATUS(session->LoadScriptFilesFromConfig(session_config));
+  CHECK_STATUS(session->LoadPlugins(session_config));
+
+  return Ok();
+}
+
+Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
+  if (session_config.contains(kAmStartKey)) {
+    const std::string am_command = session_config[kAmStartKey].get<std::string>();
+    CHECK(!am_command.empty());
+    return LaunchAppAndAttach(am_command);
+  }
+
+  if (session_config.contains(kSpawnKey)) {
+    const bool need_spawn = session_config[kSpawnKey].get<bool>();
+    if (need_spawn) {
+      const std::string app_name =
+          session_config[kAppNameKey].get<std::string>();
+      CHECK(!app_name.empty());
+      return SpawnAppAndAttach(app_name);
+    }
+  }
+
+  utils::ProcessInfo proc_info;
   if (session_config.contains(kPidKey)) {
     int const pid = session_config[kPidKey].get<int>();
     CHECK(pid > 0);
     if (const auto proc = utils::FindProcessByPid(pid); proc.has_value()) {
-      mProcessInfos.emplace_back(*proc);
+      proc_info = *proc;
     } else {
       return NotFound("Process not found");
     }
@@ -347,7 +407,7 @@ Status Device::BuildOneSessionFromConfig(const nlohmann::json &session_config) {
     CHECK(!app_name.empty());
     if (const auto proc = utils::FindProcessByName(app_name);
         proc.has_value()) {
-      mProcessInfos.emplace_back(*proc);
+      proc_info = *proc;
     } else {
       return NotFound("Process not found");
     }
@@ -355,24 +415,7 @@ Status Device::BuildOneSessionFromConfig(const nlohmann::json &session_config) {
     return BadArgument("No PID or app name provided");
   }
 
-  if (mProcessInfos.empty() || mProcessInfos.back().Pid <= 0) {
-    return BadArgument("Invalid PID");
-  }
-  pid_t pid = mProcessInfos.back().Pid;
-
-  Status status = Attach(pid);
-  if (!status.Ok()) {
-    return status;
-  }
-
-  Session *session = GetSession(pid);
-  CHECK(session != nullptr);
-
-  CHECK_STATUS(session->LoadInlineScriptsFromConfig(session_config));
-  CHECK_STATUS(session->LoadScriptFilesFromConfig(session_config));
-  CHECK_STATUS(session->LoadPlugins(session_config));
-
-  return Ok();
+  return Attach(proc_info);
 }
 
 } // namespace frida

@@ -6,14 +6,23 @@
 #include "utils/Log.h"
 #include "utils/System.h"
 
-constexpr std::string_view kConfigFilePath = "/data/local/tmp/config.json";
+constexpr std::string_view kConfilFilePathRelative = "config.json";
+constexpr std::string_view kConfigFilePathAbsolute = "/data/local/tmp/config.json";
 
 int main() {
-  if (!utils::FileExists(kConfigFilePath)) {
-    LOG(ERROR) << "Config file not found: " << kConfigFilePath;
+  std::string config;
+
+  if (utils::FileExists(kConfilFilePathRelative)) {
+    config = utils::ReadFileToBuffer(kConfilFilePathRelative);
+    LOG(INFO) << "Using relative config file: " << kConfilFilePathRelative;
+  } else if (utils::FileExists(kConfigFilePathAbsolute)) {
+    config = utils::ReadFileToBuffer(kConfigFilePathAbsolute);
+    LOG(INFO) << "Using absolute config file: " << kConfigFilePathAbsolute;
+  } else {
+    LOG(ERROR) << "Config file not found in either location: "
+               << kConfilFilePathRelative << " or " << kConfigFilePathAbsolute;
     return 1;
   }
-  std::string config = utils::ReadFileToBuffer(kConfigFilePath);
 
   LOG(INFO) << "Starting application";
 
