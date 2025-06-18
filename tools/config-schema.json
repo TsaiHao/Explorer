@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "Explorer Configuration Schema",
     "description": "Schema for the configuration of the Explorer tool.",
-    "type": "array",
+    "type": "object",
     "properties": {
         "sessions": {
             "type": "array",
@@ -99,5 +99,8 @@
                 ]
             }
         }
-    }
+    },
+    "required": [
+        "sessions"
+    ]
 }

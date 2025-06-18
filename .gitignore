@@ -1,5 +1,6 @@
 /.cache
 /.idea
+/.DS_Store
 /build
 /build-mac
 /frida_temp_extract_dir
