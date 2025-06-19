@@ -63,7 +63,8 @@ void TestBasicEcho() {
   try {
     Subprocess proc(DebugLog);
 
-    Status spawn_result = proc.Spawn("echo", {"Hello", "World", "from", "test!"});
+    Status spawn_result =
+        proc.Spawn("echo", {"Hello", "World", "from", "test!"});
     if (!spawn_result.Ok()) {
       g_results.RecordFail("TestBasicEcho", "Failed to spawn process");
       return;

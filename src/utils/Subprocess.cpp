@@ -48,8 +48,8 @@ void ReadFromPipe(int fd, std::string &buffer) {
 } // namespace
 
 Subprocess::Subprocess(LogCallback logCallback)
-    : mPid(-1), mIsRunning(false), mStdoutPipe{-1, -1},
-      mStderrPipe{-1, -1}, mLogCallback(std::move(logCallback)), mExitStatus(-1) {
+    : mPid(-1), mIsRunning(false), mStdoutPipe{-1, -1}, mStderrPipe{-1, -1},
+      mLogCallback(std::move(logCallback)), mExitStatus(-1) {
   LOG(DEBUG) << "Subprocess instance created @ " << this;
 }
 

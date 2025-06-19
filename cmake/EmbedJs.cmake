@@ -45,10 +45,7 @@ function(embed_js_file)
     get_filename_component(JS_FILE_BASE_NAME ${JS_FILE_NAME} NAME_WE)
     add_custom_target(embed_js_${JS_FILE_BASE_NAME} ALL DEPENDS ${OUTPUT_PATH})
 
-    #set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/${ARGS_TARGET_SOURCE} PROPERTY COMPILE_OPTIONS "-I${CMAKE_BINARY_DIR}/generated")
-
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/generated)
-    #target_sources(${ARGS_TARGET_SOURCE} PRIVATE ${OUTPUT_PATH})
+    target_include_directories(COMMON_SETTINGS INTERFACE ${CMAKE_BINARY_DIR}/generated)
     set_property(TARGET embed_js_${JS_FILE_BASE_NAME} PROPERTY FOLDER "Generated")
 
     message(STATUS "Embedded JavaScript file ${JS_FILE_NAME} into C++ header ${OUTPUT_NAME} for target ${CMAKE_CURRENT_SOURCE_DIR}/${ARGS_TARGET_SOURCE}.")

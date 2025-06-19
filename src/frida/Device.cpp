@@ -154,20 +154,21 @@ Status Device::Resume() {
   return Ok();
 }
 
-Status Device::Attach(const utils::ProcessInfo& proc_info) {
+Status Device::Attach(const utils::ProcessInfo &proc_info) {
   LOG(INFO) << "Attaching frida device " << mName << "@" << this
             << " targeting " << proc_info.CmdLine;
 
   CHECK(mDevice != nullptr);
   if (mSessions.Contains(proc_info) && mSessions.At(proc_info) != nullptr) {
-    LOG(INFO) << "Already attached to process " << proc_info.CmdLine << "(" << proc_info.Pid << ")";
+    LOG(INFO) << "Already attached to process " << proc_info.CmdLine << "("
+              << proc_info.Pid << ")";
     return InvalidOperation("Multiple attachments");
   }
 
   GError *error = nullptr;
 
-  auto *session =
-      frida_device_attach_sync(mDevice, proc_info.Pid, nullptr, nullptr, &error);
+  auto *session = frida_device_attach_sync(mDevice, proc_info.Pid, nullptr,
+                                           nullptr, &error);
   if (error != nullptr) {
     LOG(ERROR) << "Error attaching frida device: " << error->message;
     frida_unref(session);
@@ -181,9 +182,10 @@ Status Device::Attach(const utils::ProcessInfo& proc_info) {
 }
 
 // todo: is this resume-able?
-Status Device::Detach(const utils::ProcessInfo& proc_info) {
+Status Device::Detach(const utils::ProcessInfo &proc_info) {
   LOG(INFO) << "Detaching frida device " << mName << "@" << this
-            << " targeting " << proc_info.CmdLine << "(" << proc_info.Pid << ")";
+            << " targeting " << proc_info.CmdLine << "(" << proc_info.Pid
+            << ")";
 
   CHECK(mDevice != nullptr);
   CHECK(mSessions.Contains(proc_info));
@@ -336,14 +338,13 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
 Session *Device::GetSession(pid_t target_pid) const {
   Session *session = nullptr;
 
-  mSessions.ForEach(
-      [&target_pid, &session](const utils::ProcessInfo &proc_info,
-                              const std::unique_ptr<Session> &s) {
-        if (proc_info.Pid == target_pid) {
-          session = s.get();
-          return;
-        }
-      });
+  mSessions.ForEach([&target_pid, &session](const utils::ProcessInfo &proc_info,
+                                            const std::unique_ptr<Session> &s) {
+    if (proc_info.Pid == target_pid) {
+      session = s.get();
+      return;
+    }
+  });
 
   return session;
 }
@@ -378,7 +379,8 @@ Status Device::BuildOneSessionFromConfig(const nlohmann::json &session_config) {
 
 Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
   if (session_config.contains(kAmStartKey)) {
-    const std::string am_command = session_config[kAmStartKey].get<std::string>();
+    const std::string am_command =
+        session_config[kAmStartKey].get<std::string>();
     CHECK(!am_command.empty());
     return LaunchAppAndAttach(am_command);
   }
@@ -393,29 +395,24 @@ Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
     }
   }
 
-  utils::ProcessInfo proc_info;
   if (session_config.contains(kPidKey)) {
     int const pid = session_config[kPidKey].get<int>();
-    CHECK(pid > 0);
     if (const auto proc = utils::FindProcessByPid(pid); proc.has_value()) {
-      proc_info = *proc;
-    } else {
-      return NotFound("Process not found");
+      return Attach(*proc);
     }
-  } else if (session_config.contains(kAppNameKey)) {
-    std::string const app_name = session_config[kAppNameKey].get<std::string>();
-    CHECK(!app_name.empty());
-    if (const auto proc = utils::FindProcessByName(app_name);
-        proc.has_value()) {
-      proc_info = *proc;
-    } else {
-      return NotFound("Process not found");
-    }
-  } else {
-    return BadArgument("No PID or app name provided");
+    return NotFound("Process not found");
   }
 
-  return Attach(proc_info);
+  if (session_config.contains(kAppNameKey)) {
+    std::string const app_name = session_config[kAppNameKey].get<std::string>();
+    if (const auto proc = utils::FindProcessByName(app_name);
+        proc.has_value()) {
+      return Attach(*proc);
+    }
+    return NotFound("Process not found");
+  }
+
+  return BadArgument("No PID or app name provided");
 }
 
 } // namespace frida

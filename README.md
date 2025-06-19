@@ -30,13 +30,19 @@ export ANDROID_NDK_ROOT=$HOME/Library/Android/sdk/ndk/29.0.13113456
 ./install_dep.sh
 ```
 
-3. Build
+3. Configure 
 
 ```bash
 cmake --preset android-arm7-debug -B build
 ```
 
-4. Run
+4. Build
+
+```bash
+cmake --build build
+```
+
+5. Run
 
 ```bash
 adb push example/config.json build/explorer /data/local/tmp

@@ -24,8 +24,8 @@ public:
   Status BuildSessionsFromConfig(const nlohmann::json &config);
   Status Resume();
 
-  Status Attach(const utils::ProcessInfo& proc_info);
-  Status Detach(const utils::ProcessInfo& proc_info);
+  Status Attach(const utils::ProcessInfo &proc_info);
+  Status Detach(const utils::ProcessInfo &proc_info);
 
   Status SpawnAppAndAttach(std::string_view exec_name,
                            const std::vector<std::string> &args = {});
@@ -38,8 +38,7 @@ public:
 private:
   Status BuildOneSessionFromConfig(const nlohmann::json &session_config);
 
-  Status AttachToAppFromConfig(
-      const nlohmann::json &session_config);
+  Status AttachToAppFromConfig(const nlohmann::json &session_config);
 
   std::string mName;
   FridaDevice *mDevice{nullptr};

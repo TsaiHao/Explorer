@@ -16,8 +16,9 @@ struct ProcessInfo {
   std::string CmdLine;
   pid_t Pid;
 };
-inline bool operator==(const ProcessInfo& lhs, const ProcessInfo& rhs) {
-  return lhs.Pid == rhs.Pid && lhs.Command == rhs.Command && lhs.CmdLine == rhs.CmdLine;
+inline bool operator==(const ProcessInfo &lhs, const ProcessInfo &rhs) {
+  return lhs.Pid == rhs.Pid && lhs.Command == rhs.Command &&
+         lhs.CmdLine == rhs.CmdLine;
 }
 
 using EnumerateProcessCallback = std::function<bool(const ProcessInfo &)>;

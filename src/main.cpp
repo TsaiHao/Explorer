@@ -7,7 +7,8 @@
 #include "utils/System.h"
 
 constexpr std::string_view kConfilFilePathRelative = "config.json";
-constexpr std::string_view kConfigFilePathAbsolute = "/data/local/tmp/config.json";
+constexpr std::string_view kConfigFilePathAbsolute =
+    "/data/local/tmp/config.json";
 
 int main() {
   std::string config;
