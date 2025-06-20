@@ -2,13 +2,13 @@ function(embed_js_file)
     cmake_parse_arguments(
             ARGS
             ""
-            "TARGET_SOURCE;JS_FILE;OUTPUT_NAME;VARIABLE_NAME"
+            "TARGET;TARGET_SOURCE;JS_FILE;OUTPUT_NAME;VARIABLE_NAME"
             ""
             ${ARGN}
     )
 
-    if (NOT ARGS_TARGET_SOURCE OR NOT ARGS_JS_FILE)
-        message(FATAL_ERROR "embed_js_file requires TARGET, JS_FILE arguments.")
+    if (NOT ARGS_JS_FILE)
+        message(FATAL_ERROR "embed_js_file requires JS_FILE argument.")
     endif ()
 
     if (NOT EXISTS ${ARGS_JS_FILE})
@@ -42,11 +42,21 @@ function(embed_js_file)
             VERBATIM
     )
 
-    get_filename_component(JS_FILE_BASE_NAME ${JS_FILE_NAME} NAME_WE)
-    add_custom_target(embed_js_${JS_FILE_BASE_NAME} ALL DEPENDS ${OUTPUT_PATH})
+    if (ARGS_TARGET)
+        target_sources(${ARGS_TARGET} PRIVATE ${OUTPUT_PATH})
+    endif()
 
-    target_include_directories(COMMON_SETTINGS INTERFACE ${CMAKE_BINARY_DIR}/generated)
-    set_property(TARGET embed_js_${JS_FILE_BASE_NAME} PROPERTY FOLDER "Generated")
+    target_include_directories(${ARGS_TARGET} PRIVATE ${CMAKE_BINARY_DIR}/generated)
 
-    message(STATUS "Embedded JavaScript file ${JS_FILE_NAME} into C++ header ${OUTPUT_NAME} for target ${CMAKE_CURRENT_SOURCE_DIR}/${ARGS_TARGET_SOURCE}.")
+    message(STATUS "Embedded JavaScript file ${JS_FILE_NAME} into C++ header ${OUTPUT_NAME} for target ${ARGS_TARGET}.")
+endfunction()
+
+function(exp_add_library lib_name)
+    add_library(${lib_name} STATIC)
+
+    if(TARGET COMMON_SETTINGS)
+        target_link_libraries(${lib_name} PUBLIC COMMON_SETTINGS DEPS)
+    else()
+        message(STATUS "Warning: COMMON_SETTINGS target not found. Cannot link ${lib_name} to it.")
+    endif()
 endfunction()

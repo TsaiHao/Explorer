@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/TsaiHao/Explorer/refs/heads/main/tools/config-schema.json",
   "sessions": [
     {
-      "app": "com.amazon.tv.localgallery",
-      "spawn": true,
+      "app": "com.disney.disneyplus",
+      "spawn": false,
       "trace": [
         {
           "type": "java",

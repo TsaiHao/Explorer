@@ -1,7 +1,6 @@
-set(LIB_NAME ${PROJECT_NAME}_utils)
-add_library(${LIB_NAME} STATIC)
+exp_add_library(exp_utils)
 
-target_sources(${LIB_NAME} PRIVATE
+target_sources(exp_utils PRIVATE
         Log.h
         Log.cpp
         Macros.h
@@ -15,7 +14,3 @@ target_sources(${LIB_NAME} PRIVATE
         Util.h
         Util.cpp
 )
-
-target_link_libraries(${LIB_NAME} PUBLIC COMMON_SETTINGS)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE ${LIB_NAME})

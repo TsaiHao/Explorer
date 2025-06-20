@@ -1,6 +1,14 @@
-target_sources(${PROJECT_NAME} PRIVATE
+add_subdirectory(function_tracer)
+
+exp_add_library(exp_frida_plugins)
+
+target_sources(exp_frida_plugins
+    PRIVATE
     Plugin.h
     Plugin.cpp
 )
 
-add_subdirectory(function_tracer)
+target_link_libraries(exp_frida_plugins
+    PRIVATE
+    exp_frida_plugin_function_tracer
+)

@@ -31,21 +31,8 @@ if (ENABLE_DEBUG)
     target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror -g)
 endif ()
 
-set(SOURCES
-        src/main.cpp
-        src/Application.cpp
-        src/Application.h
-)
-add_executable(${PROJECT_NAME} ${SOURCES})
-
-add_subdirectory(src)
-
-target_sources(${PROJECT_NAME} PRIVATE ${FRIDA_WRAPPER_SOURCES} ${UTILS_SOURCES})
-
-target_link_libraries(${PROJECT_NAME} PRIVATE COMMON_SETTINGS)
-
 add_subdirectory(third_party)
-target_link_libraries(${PROJECT_NAME} PRIVATE DEPS)
+add_subdirectory(src)
 
 add_subdirectory(tools)
 add_subdirectory(tests)
