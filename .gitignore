@@ -4,7 +4,9 @@
 /build
 /build-mac
 /frida_temp_extract_dir
+/sqlite_temp_extract_dir
 /third_party/frida
+/third_party/sqlite
 
 /compile_commands.json
 /debug.js

@@ -1,3 +1,7 @@
+//
+// Created by Hao, Zaijun on 2025/4/29.
+//
+
 #include "Log.h"
 #include "utils/Macros.h"
 #ifdef TARGET_ANDROID

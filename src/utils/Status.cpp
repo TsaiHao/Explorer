@@ -19,6 +19,8 @@ std::string_view GetCodeString(StatusCode code) {
     return "Invalid State";
   case StatusCode::kSdkFailure:
     return "Sdk failure";
+  case StatusCode::kTimeout:
+    return "Timeout";
   default:
     return "Unknown";
   }

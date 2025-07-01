@@ -1,5 +1,6 @@
 function hook() {
-    const printf = Module.getExportByName(null, 'printf');
+    const module = Process.findModuleByName('libc.so');
+    const printf = module.getExportByName('printf');
     console.log(`Found printf address: ${printf}`);
     console.log("Start attaching");
 

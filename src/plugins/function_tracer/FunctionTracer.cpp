@@ -13,9 +13,20 @@
 
 using nlohmann::json;
 
-static constexpr std::string_view kScriptName = "_TracerScript";
-
 namespace plugin {
+namespace {
+constexpr std::string_view kScriptName = "_TracerScript";
+constexpr std::string_view kAddressKey = "address";
+constexpr std::string_view kNameKey = "name";
+constexpr std::array<std::string_view, 1> kIgnoreSymbolPrefixes = {"__Thumb"};
+
+bool ShouldIgnoreSymbol(std::string_view name) {
+  return std::ranges::any_of(kIgnoreSymbolPrefixes, [name](const auto &prefix) {
+    return name.starts_with(prefix);
+  });
+}
+} // namespace
+
 class FunctionTracer::Impl {
 public:
   Impl() = default;
@@ -87,7 +98,7 @@ public:
     const std::string cls = config.value("class", "");
     const std::string method = config.value("method", "");
 
-    if (ns.empty() || cls.empty() || method.empty()) {
+    if (ns.empty() && cls.empty() && method.empty()) {
       LOG(ERROR) << "Invalid configuration for function tracer: "
                  << "namespace: " << ns << ", class: " << cls
                  << ", method: " << method;
@@ -148,18 +159,23 @@ private:
 
     LOG(DEBUG) << "Composing trace arguments for " << symbols.dump(1);
     for (const auto &symbol : symbols) {
-      if (!symbol.contains("address") || !symbol.contains("name")) {
+      if (!symbol.contains(kAddressKey) || !symbol.contains(kNameKey)) {
         LOG(ERROR) << "Invalid symbol: " << symbol.dump();
+        continue;
+      }
+      const auto &name = symbol[kNameKey].get_ref<const std::string &>();
+
+      if (ShouldIgnoreSymbol(name)) {
+        LOG(DEBUG) << "Ignoring symbol: " << name;
         continue;
       }
 
       auto const &address_hex =
-          symbol["address"].get_ref<const std::string &>();
+          symbol[kAddressKey].get_ref<const std::string &>();
       auto const &address = std::stoll(address_hex, nullptr, 16);
 
       addrs.push_back(static_cast<intptr_t>(address));
-      std::string identifier =
-          utils::DemangleSymbol(symbol["name"].get_ref<const std::string &>());
+      std::string identifier = utils::DemangleSymbol(name);
       identifiers.emplace_back(std::move(identifier));
     }
 

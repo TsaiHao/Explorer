@@ -1,6 +1,7 @@
 add_library(DEPS INTERFACE)
 
 if(DEFINED FRIDA_LOCAL_PATH AND EXISTS "${FRIDA_LOCAL_PATH}")
+    # todo: implement this branch
     message(STATUS "Using custom Frida libraries from pkgconfig path: ${FRIDA_LOCAL_PATH}")
 
     set(ENV{frida_sdk_prefix} "/Users/zaijun/projects/frida/deps/sdk-android-arm")
@@ -46,3 +47,5 @@ else()
                 "ensure the hardcoded library exists at ${CMAKE_CURRENT_SOURCE_DIR}/frida/lib/libfrida-core.a")
     endif()
 endif()
+
+add_subdirectory(sqlite)

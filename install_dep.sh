@@ -39,7 +39,12 @@ install_extracted_files() {
 }
 
 download_and_extract_frida() {
-  echo "--- Downloading and Extracting Frida Dependencies ---"
+  if [ -f "${BASE_DEPS_DIR}/lib/libfrida-core.a" ]
+  then
+    echo "Frida dependencies already exist. Skipping download and extraction."
+    return
+  fi
+  
   local archive_name="frida-core-devkit-${FRIDA_VERSION}-android-arm.tar.xz"
   local frida_url="https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/${archive_name}"
 
@@ -90,13 +95,58 @@ download_and_extract_frida() {
   cd "${original_dir}"
   echo "Removing temporary download and extraction directory: ${temp_extract_dir}"
 
+  rm -rf "${temp_extract_dir}"
   echo "--- Frida Dependencies Setup Complete ---"
 }
 
+install_sqlite_source() {
+  local sqlite_version="3500100"
+  local sqlite_file_name="sqlite-amalgamation-${sqlite_version}"
+  local sqlite_zip_name="${sqlite_file_name}.zip"
+  local sqlite_url="https://sqlite.org/2025/${sqlite_zip_name}"
+  local sqlite_dir="third_party/sqlite"
+  local sqlite_include_dir="${sqlite_dir}/include"
+  local sqlite_src_dir="${sqlite_dir}/src"
+  local temp_extract_dir="sqlite_temp_extract_dir"
+
+  echo "Creating temporary directory for SQLite extraction: ${temp_extract_dir}"
+  rm -rf "${temp_extract_dir}" 
+  mkdir -p "${temp_extract_dir}"
+
+  echo "Downloading SQLite source code from ${sqlite_url}..."
+  curl -L --fail --output "${temp_extract_dir}/${sqlite_zip_name}" "${sqlite_url}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to download SQLite source code."
+    exit 1
+  fi
+
+  unzip "${temp_extract_dir}/${sqlite_zip_name}" -d "${temp_extract_dir}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to extract SQLite source code."
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+
+  if [ ! -f "${temp_extract_dir}/${sqlite_file_name}/sqlite3.c" ]; then
+    echo "Error: SQLite source code not found in the expected location."
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+
+  echo "Installing SQLite source code to ${sqlite_src_dir}..."
+  mkdir -p "${sqlite_include_dir}"
+  mkdir -p "${sqlite_src_dir}"
+  mv "${temp_extract_dir}/${sqlite_file_name}/sqlite3.c" "${sqlite_src_dir}/sqlite3.c"
+  mv "${temp_extract_dir}/${sqlite_file_name}/sqlite3.h" "${sqlite_include_dir}/sqlite3.h"
+  mv "${temp_extract_dir}/${sqlite_file_name}/sqlite3ext.h" "${sqlite_include_dir}/sqlite3ext.h"
+  echo "SQLite source code installation complete."
+  rm -rf "${temp_extract_dir}"
+}
+
 main() {
-  echo "Starting build process..."
   download_and_extract_frida
-  echo "Dependencies downloaded and extracted successfully."
+
+  install_sqlite_source
 }
 
 main "$@"
