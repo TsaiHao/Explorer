@@ -8,4 +8,6 @@ embed_js_file(
 target_sources(exp_frida_plugin_function_tracer PRIVATE
         FunctionTracer.h
         FunctionTracer.cpp
+        ScriptBuilder.h
+        ScriptBuilder.cpp
 )

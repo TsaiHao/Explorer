@@ -1,15 +1,17 @@
 {
-  "$schema": "https://raw.githubusercontent.com/TsaiHao/Explorer/refs/heads/main/tools/config-schema.json",
+  "$schema": "https://explorer.zaijun.org/config-schema.json",
   "sessions": [
     {
-      "app": "com.disney.disneyplus",
+      "app": "surfaceflinger",
       "spawn": false,
+      "scripts": [
+      ],
       "trace": [
         {
-          "type": "java",
-          "class": "android.media.MediaCodec",
-          "method": "configure",
-          "arguments": true,
+          "type": "native",
+          "namespace": "android",
+          "class": "BufferQueueProducer",
+          "method": "queueBuffer",
           "backtrace": true
         }
       ]

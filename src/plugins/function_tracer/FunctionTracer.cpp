@@ -70,7 +70,7 @@ protected:
     trace_config["args"] = config.value("arguments", false);
     trace_config["atrace"] = config.value("atrace", false);
     trace_config["log"] = config.value("log", false);
-    trace_config["quite"] = false; // todo: remove it in the future
+
     return trace_config;
   }
 

@@ -68,6 +68,27 @@ int64_t GetNowMs() {
              std::chrono::steady_clock::now().time_since_epoch())
       .count();
 }
+
+void KillAppIfRunning(std::string_view app_name) {
+  auto proc_info = utils::FindProcessByName(app_name);
+  if (!proc_info.has_value()) {
+    return;
+  }
+
+  LOG(INFO) << "App " << app_name
+            << " is running, attempting to kill it with PID: "
+            << proc_info->Pid;
+
+  int ret = kill(proc_info->Pid, SIGTERM);
+  if (ret != 0) {
+    LOG(ERROR) << "Failed to kill app " << app_name
+               << " with PID: " << proc_info->Pid
+               << ", error: " << strerror(errno);
+  } else {
+    LOG(INFO) << "Successfully killed app " << app_name
+              << " with PID: " << proc_info->Pid;
+  }
+}
 } // namespace
 
 Device::Device() {
@@ -144,9 +165,10 @@ Status Device::Resume() {
     GError *error = nullptr;
     frida_device_resume_sync(mDevice, pid, nullptr, &error);
     if (error != nullptr) {
-      LOG(ERROR) << "Error resuming frida device: " << error->message;
+      //LOG(ERROR) << "Error resuming frida device: " << error->message;
       g_error_free(error);
-      return SdkFailure("frida resume api failed");
+      // todo: fix this "Invalid PID" error
+      // return SdkFailure("frida resume api failed");
     }
   }
 
@@ -378,19 +400,21 @@ Status Device::BuildOneSessionFromConfig(const nlohmann::json &session_config) {
 }
 
 Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
+  const std::string app_name = session_config[kAppNameKey].get<std::string>();
+
   if (session_config.contains(kAmStartKey)) {
     const std::string am_command =
         session_config[kAmStartKey].get<std::string>();
     CHECK(!am_command.empty());
+    KillAppIfRunning(app_name);
     return LaunchAppAndAttach(am_command);
   }
 
   if (session_config.contains(kSpawnKey)) {
     const bool need_spawn = session_config[kSpawnKey].get<bool>();
     if (need_spawn) {
-      const std::string app_name =
-          session_config[kAppNameKey].get<std::string>();
       CHECK(!app_name.empty());
+      KillAppIfRunning(app_name);
       return SpawnAppAndAttach(app_name);
     }
   }

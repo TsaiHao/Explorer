@@ -32,7 +32,10 @@ interface TraceConfig {
     args: boolean;
     atrace: boolean;
     log: boolean;
-    quiet: boolean;
+    transform: Array<{
+        index: number;
+        new_value: any;
+    }>;
 }
 
 interface OnEnterMessage {
@@ -115,7 +118,6 @@ rpc.exports = {
             args: printArguments,
             atrace: addAtraceEvent,
             log: outputToLogcat,
-            quiet,
         } = config;
 
         const type = 'native_trace';
@@ -128,7 +130,7 @@ rpc.exports = {
             // todo: demangle and analyze arguments
             Interceptor.attach(address, {
                 onEnter(args) {
-                    const callId = Math.random() * Math.pow(2, 32);
+                    const callId = Math.floor(Math.random() * Math.pow(2, 32));
                     this.callId = callId;
                     let enterMessage: OnEnterMessage = {
                         event: 'enter',
@@ -145,9 +147,6 @@ rpc.exports = {
                     if (addAtraceEvent) {
                         MyUtils.beginTrace(traceName);
                     }
-                    if (!quiet) {
-                        send(enterMessage);
-                    }
                 },
                 onLeave(ret) {
                     const exitMessage: OnLeaveMessage = {
@@ -161,9 +160,6 @@ rpc.exports = {
                     }
                     if (addAtraceEvent) {
                         MyUtils.endTrace();
-                    }
-                    if (!quiet) {
-                        send(exitMessage);
                     }
                 }
             });
@@ -187,7 +183,6 @@ rpc.exports = {
             args: printArguments,
             atrace: addAtraceEvent,
             log: outputToLogcat,
-            quiet,
         } = config;
         const type = 'java_trace';
 
@@ -210,7 +205,7 @@ rpc.exports = {
                 for (const { method, retType, argTypes } of methods) {
                     try {
                         cls[method].overload(...argTypes).implementation = function () {
-                            const callId = Math.random() * Math.pow(2, 32);
+                            const callId = Math.floor(Math.random() * Math.pow(2, 32));
                             let enterMessage: OnEnterMessage = {
                                 event: 'enter',
                                 type,
@@ -233,9 +228,6 @@ rpc.exports = {
                                     }
                                 }
                                 enterMessage.arguments = args;
-                            }
-                            if (!quiet) {
-                                send(enterMessage);
                             }
 
                             if (outputToLogcat) {
@@ -274,9 +266,6 @@ rpc.exports = {
 
                             if (outputToLogcat) {
                                 MyUtils.alog(JSON.stringify(exitMessage));
-                            }
-                            if (!quiet) {
-                                send(exitMessage);
                             }
 
                             return result;
