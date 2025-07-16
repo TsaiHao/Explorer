@@ -13,10 +13,10 @@ namespace utils {
 class Subprocess {
 public:
   struct Result {
-    int exitStatus;
+    int exit_status;
     std::string stdout;
     std::string stderr;
-    bool timedOut;
+    bool timed_out;
   };
 
   using LogCallback = std::function<void(const std::string &)>;
@@ -34,7 +34,7 @@ public:
 
   bool Terminate(int signal = 15);
 
-  pid_t GetPid() const { return mPid; }
+  pid_t GetPid() const { return m_pid; }
 
   std::string GetStdoutBuffer();
 
@@ -55,18 +55,18 @@ private:
 
   bool CheckRunningAndUpdateStatus();
 
-  pid_t mPid;
-  std::atomic<bool> mIsRunning;
+  pid_t m_pid;
+  std::atomic<bool> m_is_running;
 
-  std::array<int, 2> mStdoutPipe;
-  std::array<int, 2> mStderrPipe;
+  std::array<int, 2> m_stdout_pipe;
+  std::array<int, 2> m_stderr_pipe;
 
-  mutable std::string mStdoutBuffer;
-  mutable std::string mStderrBuffer;
+  mutable std::string m_stdout_buffer;
+  mutable std::string m_stderr_buffer;
 
-  LogCallback mLogCallback;
+  LogCallback m_log_callback;
 
-  int mExitStatus;
+  int m_exit_status;
 };
 
 } // namespace utils

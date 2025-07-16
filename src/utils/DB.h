@@ -44,9 +44,9 @@ private:
   friend class DB;
   Statement(sqlite3_stmt *stmt, sqlite3 *db);
 
-  sqlite3_stmt *mStmt = nullptr;
-  sqlite3 *mDb = nullptr;
-  bool mHasStepped = false;
+  sqlite3_stmt *m_stmt = nullptr;
+  sqlite3 *m_db = nullptr;
+  bool m_has_stepped = false;
 };
 
 class DB {
@@ -61,7 +61,6 @@ public:
               OpenMode mode = OpenMode::ReadWriteCreate);
   ~DB();
 
-  // --- Movable, Not Copyable ---
   DB(DB &&other) noexcept;
   DB &operator=(DB &&other) noexcept;
   DB(const DB &) = delete;
@@ -71,14 +70,9 @@ public:
   std::string GetLastErrorMsg() const;
   int GetLastErrorCode() const;
 
-  // --- High-Level Operations ---
-  // For simple, one-off SQL commands that do not return data.
   bool Execute(const std::string &sql);
-  // Creates a prepared Statement object. Use this for complex queries or
-  // repeated execution.
   std::optional<Statement> Prepare(const std::string &sql);
 
-  // --- Transaction Management ---
   bool BeginTransaction();
   bool Commit();
   bool Rollback();
@@ -86,5 +80,5 @@ public:
   int64_t GetLastInsertRowId();
 
 private:
-  sqlite3 *mDb = nullptr;
+  sqlite3 *m_db = nullptr;
 };

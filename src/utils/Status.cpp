@@ -30,24 +30,24 @@ std::string_view GetCodeString(StatusCode code) {
 Status::Status() = default;
 
 Status::Status(StatusCode code, std::string_view message)
-    : mCode(code)
+    : m_code(code)
 #ifdef EXP_DEBUG
       ,
-      mMessage(message)
+      m_message(message)
 #endif
 {
 }
 
 Status::~Status() = default;
 
-bool Status::Ok() const { return mCode == StatusCode::kOk; }
+bool Status::Ok() const { return m_code == StatusCode::kOk; }
 
 std::string_view Status::Message() const {
 #ifdef EXP_DEBUG
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wreturn-stack-address"
   // NOLINTBEGIN(bugprone-dangling-handle)
-  return mMessage.empty() ? "No message" : mMessage;
+  return m_message.empty() ? "No message" : m_message;
   // NOLINTEND(bugprone-dangling-handle)
 #pragma clang diagnostic pop
 #else
@@ -56,7 +56,7 @@ std::string_view Status::Message() const {
 }
 
 std::string_view Status::CodeString() const {
-  return Ok() ? "OK" : GetCodeString(mCode);
+  return Ok() ? "OK" : GetCodeString(m_code);
 }
 
 std::ostream &operator<<(std::ostream &os, const Status &status) {

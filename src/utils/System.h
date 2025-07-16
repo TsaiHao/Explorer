@@ -12,13 +12,13 @@ std::string ReadFileToBuffer(std::string_view file_path,
                              bool is_virtual_file = false);
 
 struct ProcessInfo {
-  std::string Command;
-  std::string CmdLine;
-  pid_t Pid;
+  std::string command;
+  std::string cmd_line;
+  pid_t pid;
 };
 inline bool operator==(const ProcessInfo &lhs, const ProcessInfo &rhs) {
-  return lhs.Pid == rhs.Pid && lhs.Command == rhs.Command &&
-         lhs.CmdLine == rhs.CmdLine;
+  return lhs.pid == rhs.pid && lhs.command == rhs.command &&
+         lhs.cmd_line == rhs.cmd_line;
 }
 
 using EnumerateProcessCallback = std::function<bool(const ProcessInfo &)>;

@@ -45,7 +45,7 @@ public:
   RpcResult WaitForRpcCallResult(int call_id);
 
 private:
-  static void OnMessage(const FridaScript *script, const gchar *message,
+  static void OnMessage(const FridaScript *script, const char *message,
                         GBytes *data, gpointer user_data);
 
   bool MaybeProcessSystemMessage(nlohmann::json &msg);
@@ -54,19 +54,19 @@ private:
 
   void ProcessMessage(const FridaScript *script, std::string_view message,
                       GBytes *data);
-  std::mutex mMutex;
+  std::mutex m_mutex;
 
-  std::string mName;
-  std::string mSource;
-  bool mLoaded{false};
+  std::string m_name;
+  std::string m_source;
+  bool m_loaded{false};
 
-  FridaScript *mScript{nullptr};
-  std::unordered_map<std::string, OnMessageCallback> mCallbacks;
-  FridaSession *mSession{nullptr};
+  FridaScript *m_script{nullptr};
+  std::unordered_map<std::string, OnMessageCallback> m_callbacks;
+  FridaSession *m_session{nullptr};
 
-  std::atomic<int> mRpcCallID{0};
-  SmallMap<int, RpcResult> mRpcCallResults;
-  std::condition_variable mRpcCallCondVar;
-  std::mutex mRpcCallMutex;
+  std::atomic<int> m_rpc_call_id{0};
+  SmallMap<int, RpcResult> m_rpc_call_results;
+  std::condition_variable m_rpc_call_cond_var;
+  std::mutex m_rpc_call_mutex;
 };
 } // namespace frida

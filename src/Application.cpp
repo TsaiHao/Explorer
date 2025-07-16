@@ -38,33 +38,33 @@ private:
   struct LoopDeleter {
     void operator()(GMainLoop *loop) const noexcept { g_main_loop_unref(loop); }
   };
-  std::unique_ptr<GMainLoop, LoopDeleter> mLoop;
-  json mOriginalConfig;
-  std::vector<utils::ProcessInfo> mProcessInfos;
-  std::unique_ptr<frida::Device> mDevice;
+  std::unique_ptr<GMainLoop, LoopDeleter> m_loop;
+  json m_original_config;
+  std::vector<utils::ProcessInfo> m_process_infos;
+  std::unique_ptr<frida::Device> m_device;
 };
 
 Application::Impl::Impl(std::string_view config) {
   frida_init();
   AndroidEnvCheck();
 
-  mLoop =
+  m_loop =
       std::unique_ptr<GMainLoop, LoopDeleter>(g_main_loop_new(nullptr, TRUE));
-  mDevice = std::make_unique<frida::Device>();
+  m_device = std::make_unique<frida::Device>();
 
-  mOriginalConfig = json::parse(config);
-  if (!mOriginalConfig.contains(kSessionsKey)) {
+  m_original_config = json::parse(config);
+  if (!m_original_config.contains(kSessionsKey)) {
     LOG(FATAL) << "Configuration must contain 'sessions' key, exiting";
     exit(EXIT_FAILURE);
   }
   // Discard the top-level key and focus on 'sessions'
-  mOriginalConfig = mOriginalConfig[kSessionsKey];
-  if (!mOriginalConfig.is_array()) {
+  m_original_config = m_original_config[kSessionsKey];
+  if (!m_original_config.is_array()) {
     LOG(FATAL) << "Configuration 'sessions' must be an array, exiting";
     exit(EXIT_FAILURE);
   }
 
-  Status status = mDevice->BuildSessionsFromConfig(mOriginalConfig);
+  Status status = m_device->BuildSessionsFromConfig(m_original_config);
 
   if (!status.Ok()) {
     LOG(FATAL) << "Failed to attach processes: " << status.Message();
@@ -73,16 +73,16 @@ Application::Impl::Impl(std::string_view config) {
 
 Application::Impl::~Impl() {
   // Note: Deconstructing order matters here
-  mDevice.reset();
-  mLoop.reset();
+  m_device.reset();
+  m_loop.reset();
 }
 
 void Application::Impl::Run() const {
-  CHECK(mLoop != nullptr);
+  CHECK(m_loop != nullptr);
 
-  mDevice->Resume();
-  if (g_main_loop_is_running(mLoop.get()) != 0) {
-    g_main_loop_run(mLoop.get());
+  m_device->Resume();
+  if (g_main_loop_is_running(m_loop.get()) != 0) {
+    g_main_loop_run(m_loop.get());
   }
 
   LOG(INFO) << "Application main loop stopped running";
@@ -90,11 +90,11 @@ void Application::Impl::Run() const {
 
 Application::Application(
     std::string_view config) // NOLINT(*-unnecessary-value-param)
-    : mImpl(std::make_unique<Impl>(config)) {}
+    : m_impl(std::make_unique<Impl>(config)) {}
 
 Application::~Application() { LOG(INFO) << "Destroying Application" << this; }
 
 void Application::Run() const {
   LOG(INFO) << "Running Application " << this;
-  mImpl->Run();
+  m_impl->Run();
 }

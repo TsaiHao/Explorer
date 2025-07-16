@@ -40,14 +40,14 @@ private:
 
   Status AttachToAppFromConfig(const nlohmann::json &session_config);
 
-  std::string mName;
-  FridaDevice *mDevice{nullptr};
-  FridaDeviceManager *mManager{nullptr};
+  std::string m_name;
+  FridaDevice *m_device{nullptr};
+  FridaDeviceManager *m_manager{nullptr};
 
-  std::vector<pid_t> mPendingSpawns;
+  std::vector<pid_t> m_pending_spawns;
 
-  const nlohmann::json *mConfig = nullptr;
+  const nlohmann::json *m_config = nullptr;
 
-  SmallMap<utils::ProcessInfo, std::unique_ptr<Session>> mSessions;
+  SmallMap<utils::ProcessInfo, std::unique_ptr<Session>> m_sessions;
 };
 } // namespace frida

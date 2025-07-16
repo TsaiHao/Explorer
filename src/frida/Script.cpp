@@ -13,7 +13,7 @@ using nlohmann::json;
 
 #include <ranges>
 
-#define LOCK() const std::lock_guard<std::mutex> lock(mMutex);
+#define LOCK() const std::lock_guard<std::mutex> lock(m_mutex);
 
 constexpr std::string_view kClientMessagePrefix = "[Client]";
 constexpr std::string_view kRpcIdentifier = "frida:rpc";
@@ -29,48 +29,48 @@ static bool LoadJavaRuntimeIfNeeded(std::string_view source) {
 namespace frida {
 Script::Script(std::string_view name, std::string_view source,
                FridaSession *session)
-    : mName(name), mSource(source), mSession(session) {
+    : m_name(name), m_source(source), m_session(session) {
   LOG(INFO) << "Creating script " << this;
 }
 
 Script::~Script() {
-  LOG(INFO) << "Destroying script " << mName << "@" << this;
+  LOG(INFO) << "Destroying script " << m_name << "@" << this;
 
-  if (mLoaded) {
+  if (m_loaded) {
     Unload();
   }
 }
 
 void Script::Load() {
-  LOG(INFO) << "Loading script " << mName << "@" << this;
+  LOG(INFO) << "Loading script " << m_name << "@" << this;
   GError *error{nullptr};
 
   {
     FridaScriptOptions *options = frida_script_options_new();
     LOCK();
-    CHECK(mSession != nullptr);
+    CHECK(m_session != nullptr);
 
-    if (!mName.empty()) {
-      frida_script_options_set_name(options, mName.c_str());
+    if (!m_name.empty()) {
+      frida_script_options_set_name(options, m_name.c_str());
     }
     frida_script_options_set_runtime(options, FRIDA_SCRIPT_RUNTIME_QJS);
 
-    char *source = const_cast<char *>(mSource.data());
+    char *source = const_cast<char *>(m_source.data());
     char *buffer = nullptr;
-    if (LoadJavaRuntimeIfNeeded(mSource)) {
-      LOG(INFO) << "Loading Java runtime for script " << mName;
+    if (LoadJavaRuntimeIfNeeded(m_source)) {
+      LOG(INFO) << "Loading Java runtime for script " << m_name;
 
-      size_t needed_size = kScriptSource.size() + mSource.size() + 5;
+      size_t needed_size = kScriptSource.size() + m_source.size() + 5;
       buffer = new char[needed_size];
       snprintf(buffer, needed_size, "%s\n%s", kScriptSource.data(),
-               mSource.data());
+               m_source.data());
       source = buffer;
     }
-    mScript = frida_session_create_script_sync(mSession, source, options,
-                                               nullptr, &error);
+    m_script = frida_session_create_script_sync(m_session, source, options,
+                                                nullptr, &error);
     delete[] buffer;
-    if (mScript == nullptr || error != nullptr) {
-      LOG(ERROR) << "Failed to create script " << mName << "@" << this;
+    if (m_script == nullptr || error != nullptr) {
+      LOG(ERROR) << "Failed to create script " << m_name << "@" << this;
       if (error != nullptr) {
         LOG(ERROR) << "error: " << error->code << " -> " << error->message;
       }
@@ -80,40 +80,40 @@ void Script::Load() {
     // todo: fix compile error here
     // g_clear_object(options);
 
-    g_signal_connect(mScript, "message", G_CALLBACK(OnMessage), this);
-    mLoaded = true;
+    g_signal_connect(m_script, "message", G_CALLBACK(OnMessage), this);
+    m_loaded = true;
   }
 
-  frida_script_load_sync(mScript, nullptr, &error);
+  frida_script_load_sync(m_script, nullptr, &error);
   CHECK(error == nullptr);
 
-  LOG(DEBUG) << "Script loaded " << mName << "@" << this;
+  LOG(DEBUG) << "Script loaded " << m_name << "@" << this;
 }
 
 void Script::Unload() {
-  LOG(INFO) << "Unloading script " << mName << "@" << this;
+  LOG(INFO) << "Unloading script " << m_name << "@" << this;
 
   GError *error{nullptr};
   LOCK();
-  frida_script_unload_sync(mScript, nullptr, &error);
+  frida_script_unload_sync(m_script, nullptr, &error);
   CHECK(error != nullptr);
 
-  frida_unref(mScript);
-  mScript = nullptr;
-  mLoaded = false;
+  frida_unref(m_script);
+  m_script = nullptr;
+  m_loaded = false;
 }
 
 void Script::AddMessageCallback(std::string_view name,
                                 OnMessageCallback callback) {
   LOCK();
-  mCallbacks.emplace(name, std::move(callback));
+  m_callbacks.emplace(name, std::move(callback));
 }
 
 void Script::RemoveCallback(std::string_view name) {
   LOCK();
-  if (const auto iter = mCallbacks.find(std::string(name));
-      iter != mCallbacks.end()) {
-    mCallbacks.erase(iter);
+  if (const auto iter = m_callbacks.find(std::string(name));
+      iter != m_callbacks.end()) {
+    m_callbacks.erase(iter);
   }
 }
 
@@ -136,7 +136,7 @@ int Script::SendRpcCall(std::string_view method, std::string_view param_json) {
   std::string message;
   message.reserve(256);
 
-  int const call_id = mRpcCallID++;
+  int const call_id = m_rpc_call_id++;
   message.append("[\"")
       .append(kRpcIdentifier)
       .append("\",")
@@ -147,19 +147,19 @@ int Script::SendRpcCall(std::string_view method, std::string_view param_json) {
       .append(param_json.empty() ? "[]" : param_json)
       .append("]");
 
-  frida_script_post(mScript, message.c_str(), nullptr);
+  frida_script_post(m_script, message.c_str(), nullptr);
   LOG(DEBUG) << "Sent RPC call " << message << " with ID " << call_id;
 
   return call_id;
 }
 
 RpcResult Script::WaitForRpcCallResult(int call_id) {
-  std::unique_lock<std::mutex> lock(mRpcCallMutex);
-  mRpcCallCondVar.wait(
-      lock, [this, call_id] { return mRpcCallResults.Contains(call_id); });
+  std::unique_lock<std::mutex> lock(m_rpc_call_mutex);
+  m_rpc_call_cond_var.wait(
+      lock, [this, call_id] { return m_rpc_call_results.Contains(call_id); });
 
-  auto result = std::move(mRpcCallResults[call_id]);
-  mRpcCallResults.Erase(call_id);
+  auto result = std::move(m_rpc_call_results[call_id]);
+  m_rpc_call_results.Erase(call_id);
 
   return result;
 }
@@ -244,11 +244,11 @@ void Script::OnRpcReturn(json &msg) {
     }
     json result = payload[3];
 
-    std::lock_guard lock(mRpcCallMutex);
-    CHECK(!mRpcCallResults.Contains(call_id));
-    mRpcCallResults[call_id] = std::move(result);
+    std::lock_guard lock(m_rpc_call_mutex);
+    CHECK(!m_rpc_call_results.Contains(call_id));
+    m_rpc_call_results[call_id] = std::move(result);
 
-    mRpcCallCondVar.notify_all();
+    m_rpc_call_cond_var.notify_all();
   } else if (type == kRpcResultError) {
     if (payload.size() < 4) {
       LOG(ERROR) << "Invalid RPC error message: " << msg.dump();
@@ -256,11 +256,11 @@ void Script::OnRpcReturn(json &msg) {
     }
     json error = payload[3];
 
-    std::lock_guard lock(mRpcCallMutex);
-    CHECK(!mRpcCallResults.Contains(call_id));
-    mRpcCallResults[call_id] = std::unexpected(std::move(error));
+    std::lock_guard lock(m_rpc_call_mutex);
+    CHECK(!m_rpc_call_results.Contains(call_id));
+    m_rpc_call_results[call_id] = std::unexpected(std::move(error));
 
-    mRpcCallCondVar.notify_all();
+    m_rpc_call_cond_var.notify_all();
   } else {
     LOG(ERROR) << "Unknown RPC return type: " << type;
   }
@@ -268,7 +268,7 @@ void Script::OnRpcReturn(json &msg) {
 
 void Script::ProcessMessage(const FridaScript *script, std::string_view message,
                             GBytes *data) {
-  CHECK(script == mScript);
+  CHECK(script == m_script);
 
   auto msg_obj = json::parse(message);
   if (MaybeProcessSystemMessage(msg_obj)) {
@@ -289,7 +289,7 @@ void Script::ProcessMessage(const FridaScript *script, std::string_view message,
   }
 
   LOCK();
-  for (const auto &callback : mCallbacks | std::views::values) {
+  for (const auto &callback : m_callbacks | std::views::values) {
     callback(this, message, data_pointer, data_size);
   }
 }

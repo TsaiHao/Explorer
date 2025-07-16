@@ -35,15 +35,15 @@ public:
   Script *GetScript(std::string_view name) const;
   Status RemoveScript(std::string_view name);
 
-  pid_t GetPid() const { return mPid; }
+  pid_t GetPid() const { return m_pid; }
 
 private:
-  FridaSession *mSession{nullptr};
-  std::atomic<bool> mAttaching{false};
+  FridaSession *m_session{nullptr};
+  std::atomic<bool> m_attaching{false};
 
-  pid_t mPid{0};
-  SmallMap<std::string, std::unique_ptr<Script>> mScripts;
-  std::vector<std::unique_ptr<plugin::Plugin>> mPlugins;
+  pid_t m_pid{0};
+  SmallMap<std::string, std::unique_ptr<Script>> m_scripts;
+  std::vector<std::unique_ptr<plugin::Plugin>> m_plugins;
 };
 
 } // namespace frida

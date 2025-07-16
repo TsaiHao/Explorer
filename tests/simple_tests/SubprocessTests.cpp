@@ -74,12 +74,12 @@ void TestBasicEcho() {
 
     auto result = proc.Wait();
 
-    std::cout << "Exit status: " << result.exitStatus << '\n';
+    std::cout << "Exit status: " << result.exit_status << '\n';
     std::cout << "Stdout: [" << result.stdout << "]" << '\n';
     std::cout << "Stderr: [" << result.stderr << "]" << '\n';
 
-    if (result.exitStatus == 0 && result.stdout == "Hello World from test!\n" &&
-        result.stderr.empty()) {
+    if (result.exit_status == 0 &&
+        result.stdout == "Hello World from test!\n" && result.stderr.empty()) {
       g_results.RecordPass("TestBasicEcho");
     } else {
       g_results.RecordFail("TestBasicEcho", "Unexpected output or exit status");
@@ -109,11 +109,11 @@ void TestStderrCapture() {
 
     auto result = proc.Wait();
 
-    std::cout << "Exit status: " << result.exitStatus << '\n';
+    std::cout << "Exit status: " << result.exit_status << '\n';
     std::cout << "Stdout: [" << result.stdout << "]" << '\n';
     std::cout << "Stderr: [" << result.stderr << "]" << '\n';
 
-    if (result.exitStatus == 0 &&
+    if (result.exit_status == 0 &&
         result.stdout.find("stdout") != std::string::npos &&
         result.stderr.find("stderr") != std::string::npos) {
       g_results.RecordPass("TestStderrCapture");
@@ -148,10 +148,10 @@ void TestTimeout() {
 
     auto result = proc.Wait(1000);
 
-    std::cout << "Timed out: " << (result.timedOut ? "YES" : "NO") << '\n';
-    std::cout << "Exit status: " << result.exitStatus << '\n';
+    std::cout << "Timed out: " << (result.timed_out ? "YES" : "NO") << '\n';
+    std::cout << "Exit status: " << result.exit_status << '\n';
 
-    if (result.timedOut && result.stdout.empty()) {
+    if (result.timed_out && result.stdout.empty()) {
       g_results.RecordPass("TestTimeout");
     } else {
       g_results.RecordFail("TestTimeout",
@@ -198,12 +198,12 @@ void TestAsyncExecution() {
     auto result = proc.Wait();
     std::cout << "Final stdout: [" << result.stdout << "]" << '\n';
 
-    if (result.exitStatus == 0 &&
+    if (result.exit_status == 0 &&
         result.stdout.find("Line 1") != std::string::npos &&
         result.stdout.find("Line 3") != std::string::npos) {
       g_results.RecordPass("TestAsyncExecution");
     } else {
-      std::cout << "Exit status: " << result.exitStatus << '\n';
+      std::cout << "Exit status: " << result.exit_status << '\n';
       std::cout << "Stderr: [" << result.stderr << "]" << '\n';
       std::cout << "Full stdout: [" << result.stdout << "]" << '\n';
       std::cout << "find(\"Line 1\") result: "
@@ -253,10 +253,10 @@ void TestTermination() {
 
     auto result = proc.Wait(2000);
 
-    std::cout << "Exit status: " << result.exitStatus << '\n';
+    std::cout << "Exit status: " << result.exit_status << '\n';
     std::cout << "Stdout: [" << result.stdout << "]" << '\n';
 
-    if (result.exitStatus < 0 &&
+    if (result.exit_status < 0 &&
         result.stdout.find("Started") != std::string::npos) {
       g_results.RecordPass("TestTermination");
     } else {
@@ -286,10 +286,10 @@ void TestInvalidCommand() {
 
     auto result = proc.Wait();
 
-    std::cout << "Exit status: " << result.exitStatus << '\n';
+    std::cout << "Exit status: " << result.exit_status << '\n';
     std::cout << "Stderr: [" << result.stderr << "]" << '\n';
 
-    if (result.exitStatus != 0 || !result.stderr.empty()) {
+    if (result.exit_status != 0 || !result.stderr.empty()) {
       g_results.RecordPass("TestInvalidCommand");
     } else {
       g_results.RecordFail("TestInvalidCommand",
@@ -330,7 +330,7 @@ void TestMultipleProcesses() {
     auto result2 = proc2.Wait();
     std::cout << "Process 2 output: [" << result2.stdout << "]" << '\n';
 
-    if (result1.exitStatus == 0 && result2.exitStatus == 0 &&
+    if (result1.exit_status == 0 && result2.exit_status == 0 &&
         result1.stdout.find("First") != std::string::npos &&
         result2.stdout.find("Second") != std::string::npos) {
       g_results.RecordPass("TestMultipleProcesses");

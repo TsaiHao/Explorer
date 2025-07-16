@@ -13,7 +13,7 @@ constexpr std::string_view kScriptFilesKey = "scripts";
 constexpr std::string_view kScriptsKey = "script_source";
 } // namespace
 Session::Session(pid_t pid, FridaSession *session)
-    : mSession(session), mPid(pid) {
+    : m_session(session), m_pid(pid) {
   LOG(INFO) << "Creating session " << this;
 }
 
@@ -22,46 +22,46 @@ Session::~Session() {
   if (LIKELY(IsAttaching())) {
     Detach();
   }
-  if (LIKELY(mSession != nullptr)) {
-    frida_unref(mSession);
+  if (LIKELY(m_session != nullptr)) {
+    frida_unref(m_session);
   }
 }
 
 Status Session::CreateScript(std::string_view name, std::string_view source) {
-  LOG(DEBUG) << "Creating script " << name << " for process " << mPid;
+  LOG(DEBUG) << "Creating script " << name << " for process " << m_pid;
 
-  if (mScripts.Contains(std::string(name))) {
+  if (m_scripts.Contains(std::string(name))) {
     return InvalidOperation("Duplicate name");
   }
-  mScripts[std::string(name)] =
-      std::make_unique<Script>(name, source, mSession);
+  m_scripts[std::string(name)] =
+      std::make_unique<Script>(name, source, m_session);
 
   return Ok();
 }
 
-bool Session::IsAttaching() const { return mAttaching; }
+bool Session::IsAttaching() const { return m_attaching; }
 
 void Session::Resume() {
-  if (mAttaching) {
+  if (m_attaching) {
     LOG(WARNING) << "Resuming a running session " << this;
     return;
   }
   GError *error = nullptr;
-  frida_session_resume_sync(mSession, nullptr, &error);
+  frida_session_resume_sync(m_session, nullptr, &error);
   CHECK(error == nullptr);
 
-  mAttaching = true;
+  m_attaching = true;
 }
 
 void Session::Detach() {
-  if (!mAttaching) {
+  if (!m_attaching) {
     LOG(WARNING) << "Detaching an idle session " << this;
     return;
   }
   GError *error = nullptr;
-  frida_session_detach_sync(mSession, nullptr, &error);
+  frida_session_detach_sync(m_session, nullptr, &error);
   CHECK(error == nullptr);
-  mAttaching = false;
+  m_attaching = false;
 }
 
 Status Session::LoadInlineScriptsFromConfig(const nlohmann::json &config) {
@@ -152,23 +152,23 @@ Status Session::LoadScriptFilesFromConfig(const nlohmann::json &config) {
 }
 
 Status Session::LoadPlugins(const nlohmann::json &config) {
-  mPlugins = plugin::MakePlugin(this, config);
+  m_plugins = plugin::MakePlugin(this, config);
   return Ok();
 }
 
 Script *Session::GetScript(std::string_view name) const {
-  if (!mScripts.Contains(name)) {
+  if (!m_scripts.Contains(name)) {
     return nullptr;
   }
-  return mScripts.At(name).get();
+  return m_scripts.At(name).get();
 }
 
 Status Session::RemoveScript(std::string_view name) {
-  if (!mScripts.Contains(name)) {
+  if (!m_scripts.Contains(name)) {
     return NotFound("Script not found");
   }
-  auto script = std::move(mScripts.At(name));
-  mScripts.Erase(name);
+  auto script = std::move(m_scripts.At(name));
+  m_scripts.Erase(name);
   script->Unload();
   return Ok();
 }

@@ -5,30 +5,32 @@
 #include "DB.h"
 #include "utils/Log.h"
 
-Statement::Statement(sqlite3_stmt *stmt, sqlite3 *db) : mStmt(stmt), mDb(db) {}
+Statement::Statement(sqlite3_stmt *stmt, sqlite3 *db)
+    : m_stmt(stmt), m_db(db) {}
 
 Statement::~Statement() {
-  if (mStmt != nullptr) {
-    sqlite3_finalize(mStmt);
+  if (m_stmt != nullptr) {
+    sqlite3_finalize(m_stmt);
   }
 }
 
 Statement::Statement(Statement &&other) noexcept
-    : mStmt(other.mStmt), mDb(other.mDb), mHasStepped(other.mHasStepped) {
-  other.mStmt = nullptr;
-  other.mDb = nullptr;
+    : m_stmt(other.m_stmt), m_db(other.m_db),
+      m_has_stepped(other.m_has_stepped) {
+  other.m_stmt = nullptr;
+  other.m_db = nullptr;
 }
 
 Statement &Statement::operator=(Statement &&other) noexcept {
   if (this != &other) {
-    if (mStmt != nullptr) {
-      sqlite3_finalize(mStmt);
+    if (m_stmt != nullptr) {
+      sqlite3_finalize(m_stmt);
     }
-    mStmt = other.mStmt;
-    mDb = other.mDb;
-    mHasStepped = other.mHasStepped;
-    other.mStmt = nullptr;
-    other.mDb = nullptr;
+    m_stmt = other.m_stmt;
+    m_db = other.m_db;
+    m_has_stepped = other.m_has_stepped;
+    other.m_stmt = nullptr;
+    other.m_db = nullptr;
   }
   return *this;
 }
@@ -38,53 +40,53 @@ bool Statement::Bind(int index, int value) {
 }
 
 bool Statement::Bind(int index, int64_t value) {
-  if (sqlite3_bind_int64(mStmt, index, value) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind int64: " << sqlite3_errmsg(mDb);
+  if (sqlite3_bind_int64(m_stmt, index, value) != SQLITE_OK) {
+    LOG(INFO) << "Failed to bind int64: " << sqlite3_errmsg(m_db);
     return false;
   }
   return true;
 }
 
 bool Statement::Bind(int index, double value) {
-  if (sqlite3_bind_double(mStmt, index, value) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind double: " << sqlite3_errmsg(mDb);
+  if (sqlite3_bind_double(m_stmt, index, value) != SQLITE_OK) {
+    LOG(INFO) << "Failed to bind double: " << sqlite3_errmsg(m_db);
     return false;
   }
   return true;
 }
 
 bool Statement::Bind(int index, std::string_view text) {
-  if (sqlite3_bind_text(mStmt, index, text.data(),
+  if (sqlite3_bind_text(m_stmt, index, text.data(),
                         static_cast<int>(text.length()),
                         SQLITE_TRANSIENT) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind text: " << sqlite3_errmsg(mDb);
+    LOG(INFO) << "Failed to bind text: " << sqlite3_errmsg(m_db);
     return false;
   }
   return true;
 }
 
 bool Statement::Bind(int index, const std::vector<uint8_t> &blob) {
-  if (sqlite3_bind_blob(mStmt, index, blob.data(),
+  if (sqlite3_bind_blob(m_stmt, index, blob.data(),
                         static_cast<int>(blob.size()),
                         SQLITE_TRANSIENT) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind blob: " << sqlite3_errmsg(mDb);
+    LOG(INFO) << "Failed to bind blob: " << sqlite3_errmsg(m_db);
     return false;
   }
   return true;
 }
 
 bool Statement::BindNull(int index) {
-  if (sqlite3_bind_null(mStmt, index) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind null: " << sqlite3_errmsg(mDb);
+  if (sqlite3_bind_null(m_stmt, index) != SQLITE_OK) {
+    LOG(INFO) << "Failed to bind null: " << sqlite3_errmsg(m_db);
     return false;
   }
   return true;
 }
 
 bool Statement::Step() {
-  int rc = sqlite3_step(mStmt);
-  if (!mHasStepped) {
-    mHasStepped = true;
+  int rc = sqlite3_step(m_stmt);
+  if (!m_has_stepped) {
+    m_has_stepped = true;
   }
 
   if (rc == SQLITE_ROW) {
@@ -94,18 +96,18 @@ bool Statement::Step() {
     return false; // The statement has finished executing.
   }
 
-  LOG(INFO) << "Step error: " << sqlite3_errmsg(mDb);
+  LOG(INFO) << "Step error: " << sqlite3_errmsg(m_db);
   return false; // An error occurred.
 }
 
 bool Statement::Execute() {
-  int rc = sqlite3_step(mStmt);
-  if (!mHasStepped) {
-    mHasStepped = true;
+  int rc = sqlite3_step(m_stmt);
+  if (!m_has_stepped) {
+    m_has_stepped = true;
   }
 
   if (rc != SQLITE_DONE) {
-    LOG(INFO) << "Execute error: " << sqlite3_errmsg(mDb);
+    LOG(INFO) << "Execute error: " << sqlite3_errmsg(m_db);
     Reset();
     return false;
   }
@@ -113,24 +115,24 @@ bool Statement::Execute() {
 }
 
 void Statement::Reset() {
-  sqlite3_reset(mStmt);
-  sqlite3_clear_bindings(mStmt);
-  mHasStepped = false;
+  sqlite3_reset(m_stmt);
+  sqlite3_clear_bindings(m_stmt);
+  m_has_stepped = false;
 }
 
-int Statement::GetColumnCount() { return sqlite3_column_count(mStmt); }
+int Statement::GetColumnCount() { return sqlite3_column_count(m_stmt); }
 
 std::string Statement::GetColumnName(int index) {
-  const char *name = sqlite3_column_name(mStmt, index);
+  const char *name = sqlite3_column_name(m_stmt, index);
   return (name != nullptr) ? name : "";
 }
 
 int Statement::GetColumnType(int index) {
-  return sqlite3_column_type(mStmt, index);
+  return sqlite3_column_type(m_stmt, index);
 }
 
 Statement::Value Statement::GetColumn(int index) {
-  if (!mHasStepped) {
+  if (!m_has_stepped) {
     LOG(INFO) << "Cannot get column data before calling Step() at least once.";
     return {}; // Return monostate
   }
@@ -142,17 +144,17 @@ Statement::Value Statement::GetColumn(int index) {
   int type = GetColumnType(index);
   switch (type) {
   case SQLITE_INTEGER:
-    return sqlite3_column_int64(mStmt, index);
+    return sqlite3_column_int64(m_stmt, index);
   case SQLITE_FLOAT:
-    return sqlite3_column_double(mStmt, index);
+    return sqlite3_column_double(m_stmt, index);
   case SQLITE_TEXT: {
-    const auto *text = sqlite3_column_text(mStmt, index);
-    int size = sqlite3_column_bytes(mStmt, index);
+    const auto *text = sqlite3_column_text(m_stmt, index);
+    int size = sqlite3_column_bytes(m_stmt, index);
     return std::string(reinterpret_cast<const char *>(text), size);
   }
   case SQLITE_BLOB: {
-    const void *blob_data = sqlite3_column_blob(mStmt, index);
-    int size = sqlite3_column_bytes(mStmt, index);
+    const void *blob_data = sqlite3_column_blob(m_stmt, index);
+    int size = sqlite3_column_bytes(m_stmt, index);
     const auto *start = static_cast<const uint8_t *>(blob_data);
     return std::vector<uint8_t>(start, start + size);
   }
@@ -164,50 +166,51 @@ Statement::Value Statement::GetColumn(int index) {
 
 DB::DB(const std::string &path, OpenMode mode) {
   int flags = static_cast<int>(mode);
-  if (sqlite3_open_v2(path.c_str(), &mDb, flags, nullptr) != SQLITE_OK) {
-    if (mDb != nullptr) {
-      LOG(INFO) << "Can't open database: " << sqlite3_errmsg(mDb);
-      sqlite3_close(mDb);
+  if (sqlite3_open_v2(path.c_str(), &m_db, flags, nullptr) != SQLITE_OK) {
+    if (m_db != nullptr) {
+      LOG(INFO) << "Can't open database: " << sqlite3_errmsg(m_db);
+      sqlite3_close(m_db);
     } else {
       LOG(INFO)
           << "Can't open database: sqlite3_open_v2 failed to allocate memory";
     }
-    mDb = nullptr;
+    m_db = nullptr;
   }
 }
 
 DB::~DB() {
-  if (mDb != nullptr) {
-    sqlite3_close_v2(mDb);
+  if (m_db != nullptr) {
+    sqlite3_close_v2(m_db);
   }
 }
 
-DB::DB(DB &&other) noexcept : mDb(other.mDb) { other.mDb = nullptr; }
+DB::DB(DB &&other) noexcept : m_db(other.m_db) { other.m_db = nullptr; }
 
 DB &DB::operator=(DB &&other) noexcept {
   if (this != &other) {
-    if (mDb != nullptr) {
-      sqlite3_close_v2(mDb);
+    if (m_db != nullptr) {
+      sqlite3_close_v2(m_db);
     }
-    mDb = other.mDb;
-    other.mDb = nullptr;
+    m_db = other.m_db;
+    other.m_db = nullptr;
   }
   return *this;
 }
 
-bool DB::IsOpen() const { return mDb != nullptr; }
+bool DB::IsOpen() const { return m_db != nullptr; }
 
 std::string DB::GetLastErrorMsg() const {
-  return (mDb != nullptr) ? sqlite3_errmsg(mDb) : "Database is not open.";
+  return (m_db != nullptr) ? sqlite3_errmsg(m_db) : "Database is not open.";
 }
 
 int DB::GetLastErrorCode() const {
-  return (mDb != nullptr) ? sqlite3_errcode(mDb) : -1;
+  return (m_db != nullptr) ? sqlite3_errcode(m_db) : -1;
 }
 
 bool DB::Execute(const std::string &sql) {
   char *err_msg = nullptr;
-  if (sqlite3_exec(mDb, sql.c_str(), nullptr, nullptr, &err_msg) != SQLITE_OK) {
+  if (sqlite3_exec(m_db, sql.c_str(), nullptr, nullptr, &err_msg) !=
+      SQLITE_OK) {
     LOG(INFO) << "SQL error: " << err_msg;
     sqlite3_free(err_msg);
     return false;
@@ -217,13 +220,13 @@ bool DB::Execute(const std::string &sql) {
 
 std::optional<Statement> DB::Prepare(const std::string &sql) {
   sqlite3_stmt *stmt = nullptr;
-  if (sqlite3_prepare_v2(mDb, sql.c_str(), static_cast<int>(sql.length()),
+  if (sqlite3_prepare_v2(m_db, sql.c_str(), static_cast<int>(sql.length()),
                          &stmt, nullptr) != SQLITE_OK) {
     LOG(INFO) << "Failed to prepare statement: " << GetLastErrorMsg();
     sqlite3_finalize(stmt); // It's safe to call finalize on a NULL pointer.
     return std::nullopt;
   }
-  return Statement(stmt, mDb);
+  return Statement(stmt, m_db);
 }
 
 bool DB::BeginTransaction() { return Execute("BEGIN TRANSACTION;"); }
@@ -232,4 +235,4 @@ bool DB::Commit() { return Execute("COMMIT;"); }
 
 bool DB::Rollback() { return Execute("ROLLBACK;"); }
 
-int64_t DB::GetLastInsertRowId() { return sqlite3_last_insert_rowid(mDb); }
+int64_t DB::GetLastInsertRowId() { return sqlite3_last_insert_rowid(m_db); }

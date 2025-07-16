@@ -21,6 +21,6 @@ public:
   class Impl;
 
 private:
-  std::unique_ptr<Impl> mImpl;
+  std::unique_ptr<Impl> m_impl;
 };
 } // namespace plugin

@@ -14,13 +14,13 @@ public:
   ~Logger();
 
   template <typename T> Logger &operator<<(T &&value) {
-    mStream << std::forward<T>(value);
+    m_stream << std::forward<T>(value);
     return *this;
   }
 
 private:
-  LogLevel mLevel;
-  std::ostringstream mStream;
+  LogLevel m_level;
+  std::ostringstream m_stream;
 };
 
 constexpr const char *GetBaseFilename(const char *path) {

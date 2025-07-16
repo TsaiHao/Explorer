@@ -48,13 +48,14 @@ void ReadFromPipe(int fd, std::string &buffer) {
 } // namespace
 
 Subprocess::Subprocess(LogCallback logCallback)
-    : mPid(-1), mIsRunning(false), mStdoutPipe{-1, -1}, mStderrPipe{-1, -1},
-      mLogCallback(std::move(logCallback)), mExitStatus(-1) {
+    : m_pid(-1), m_is_running(false), m_stdout_pipe{-1, -1},
+      m_stderr_pipe{-1, -1}, m_log_callback(std::move(logCallback)),
+      m_exit_status(-1) {
   LOG(DEBUG) << "Subprocess instance created @ " << this;
 }
 
 Subprocess::~Subprocess() {
-  if (mIsRunning) {
+  if (m_is_running) {
     LOG(DEBUG) << "Destructor called with running process, terminating...";
     Terminate(SIGKILL);
     Wait(1000);
@@ -67,44 +68,44 @@ Subprocess::~Subprocess() {
 Status Subprocess::Spawn(const std::string &command,
                          const std::vector<std::string> &args,
                          const std::vector<std::string> &env) {
-  if (mIsRunning) {
+  if (m_is_running) {
     LOG(ERROR) << "Error: Cannot spawn - process already running";
     return InvalidOperation("Repeated spawn attempt");
   }
 
-  mStdoutBuffer.clear();
-  mStderrBuffer.clear();
-  mExitStatus = -1;
+  m_stdout_buffer.clear();
+  m_stderr_buffer.clear();
+  m_exit_status = -1;
 
   if (!CreatePipes()) {
     LOG(ERROR) << "Error: Failed to create pipes";
     return InvalidOperation("Failed to create pipes");
   }
 
-  mPid = fork();
-  if (mPid == -1) {
+  m_pid = fork();
+  if (m_pid == -1) {
     LOG(ERROR) << "Error: fork() failed - " << strerror(errno);
     ClosePipes();
     return InvalidState("Fork failed: " + std::string(strerror(errno)));
   }
 
-  if (mPid == 0) {
+  if (m_pid == 0) {
     ChildProcess(command, args, env);
     _exit(127);
   }
 
-  close(mStdoutPipe[1]);
-  close(mStderrPipe[1]);
-  mStdoutPipe[1] = -1;
-  mStderrPipe[1] = -1;
+  close(m_stdout_pipe[1]);
+  close(m_stderr_pipe[1]);
+  m_stdout_pipe[1] = -1;
+  m_stderr_pipe[1] = -1;
 
-  MakeNonBlocking(mStdoutPipe[0]);
-  MakeNonBlocking(mStderrPipe[0]);
+  MakeNonBlocking(m_stdout_pipe[0]);
+  MakeNonBlocking(m_stderr_pipe[0]);
 
-  mIsRunning = true;
+  m_is_running = true;
 
   std::ostringstream oss;
-  oss << "Spawned process with PID " << mPid << " - Command: " << command;
+  oss << "Spawned process with PID " << m_pid << " - Command: " << command;
   LOG(DEBUG) << oss.str();
 
   return Ok();
@@ -112,26 +113,26 @@ Status Subprocess::Spawn(const std::string &command,
 
 Subprocess::Result Subprocess::Wait(int timeoutMs) {
   Result result = {
-      .exitStatus = -1, .stdout = "", .stderr = "", .timedOut = false};
+      .exit_status = -1, .stdout = "", .stderr = "", .timed_out = false};
 
-  if (!mIsRunning) {
+  if (!m_is_running) {
     LOG(WARNING) << "Warning: Wait() called but process not running";
-    result.exitStatus = mExitStatus;
-    result.stdout = mStdoutBuffer;
-    result.stderr = mStderrBuffer;
+    result.exit_status = m_exit_status;
+    result.stdout = m_stdout_buffer;
+    result.stderr = m_stderr_buffer;
     return result;
   }
 
   auto start_time = std::chrono::steady_clock::now();
 
-  while (mIsRunning) {
+  while (m_is_running) {
     if (timeoutMs >= 0) {
       auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::steady_clock::now() - start_time)
                          .count();
       if (elapsed >= timeoutMs) {
         LOG(WARNING) << "Process timed out after " << timeoutMs << "ms";
-        result.timedOut = true;
+        result.timed_out = true;
         Terminate(SIGTERM);
         break;
       }
@@ -141,13 +142,13 @@ Subprocess::Result Subprocess::Wait(int timeoutMs) {
     FD_ZERO(&read_fds);
     int max_fd = -1;
 
-    if (mStdoutPipe[0] != -1) {
-      FD_SET(mStdoutPipe[0], &read_fds);
-      max_fd = std::max(max_fd, mStdoutPipe[0]);
+    if (m_stdout_pipe[0] != -1) {
+      FD_SET(m_stdout_pipe[0], &read_fds);
+      max_fd = std::max(max_fd, m_stdout_pipe[0]);
     }
-    if (mStderrPipe[0] != -1) {
-      FD_SET(mStderrPipe[0], &read_fds);
-      max_fd = std::max(max_fd, mStderrPipe[0]);
+    if (m_stderr_pipe[0] != -1) {
+      FD_SET(m_stderr_pipe[0], &read_fds);
+      max_fd = std::max(max_fd, m_stderr_pipe[0]);
     }
 
     struct timeval tv;
@@ -157,11 +158,11 @@ Subprocess::Result Subprocess::Wait(int timeoutMs) {
     int select_result = select(max_fd + 1, &read_fds, nullptr, nullptr, &tv);
 
     if (select_result > 0) {
-      if (mStdoutPipe[0] != -1 && FD_ISSET(mStdoutPipe[0], &read_fds)) {
-        ReadFromPipe(mStdoutPipe[0], mStdoutBuffer);
+      if (m_stdout_pipe[0] != -1 && FD_ISSET(m_stdout_pipe[0], &read_fds)) {
+        ReadFromPipe(m_stdout_pipe[0], m_stdout_buffer);
       }
-      if (mStderrPipe[0] != -1 && FD_ISSET(mStderrPipe[0], &read_fds)) {
-        ReadFromPipe(mStderrPipe[0], mStderrBuffer);
+      if (m_stderr_pipe[0] != -1 && FD_ISSET(m_stderr_pipe[0], &read_fds)) {
+        ReadFromPipe(m_stderr_pipe[0], m_stderr_buffer);
       }
     }
 
@@ -170,15 +171,15 @@ Subprocess::Result Subprocess::Wait(int timeoutMs) {
     }
   }
 
-  result.exitStatus = mExitStatus;
-  result.stdout = mStdoutBuffer;
-  result.stderr = mStderrBuffer;
+  result.exit_status = m_exit_status;
+  result.stdout = m_stdout_buffer;
+  result.stderr = m_stderr_buffer;
 
   return result;
 }
 
 bool Subprocess::IsRunning() {
-  if (!mIsRunning) {
+  if (!m_is_running) {
     return false;
   }
 
@@ -190,14 +191,14 @@ bool Subprocess::IsRunning() {
 }
 
 bool Subprocess::Terminate(int signal) {
-  if (!mIsRunning) {
+  if (!m_is_running) {
     LOG(WARNING) << "Warning: Terminate() called but process not running";
     return false;
   }
 
-  LOG(INFO) << "Sending signal " << signal << " to PID " << mPid;
+  LOG(INFO) << "Sending signal " << signal << " to PID " << m_pid;
 
-  if (kill(mPid, signal) == -1) {
+  if (kill(m_pid, signal) == -1) {
     LOG(ERROR) << "Error: Failed to send signal - " << strerror(errno);
     return false;
   }
@@ -206,40 +207,40 @@ bool Subprocess::Terminate(int signal) {
 }
 
 std::string Subprocess::GetStdoutBuffer() {
-  if (mStdoutPipe[0] != -1) {
-    ReadFromPipe(mStdoutPipe[0], mStdoutBuffer);
+  if (m_stdout_pipe[0] != -1) {
+    ReadFromPipe(m_stdout_pipe[0], m_stdout_buffer);
   }
-  return mStdoutBuffer;
+  return m_stdout_buffer;
 }
 
 std::string Subprocess::GetStderrBuffer() {
-  if (mStderrPipe[0] != -1) {
-    ReadFromPipe(mStderrPipe[0], mStderrBuffer);
+  if (m_stderr_pipe[0] != -1) {
+    ReadFromPipe(m_stderr_pipe[0], m_stderr_buffer);
   }
-  return mStderrBuffer;
+  return m_stderr_buffer;
 }
 
 void Subprocess::ClosePipes() {
-  for (int fd :
-       {mStdoutPipe[0], mStdoutPipe[1], mStderrPipe[0], mStderrPipe[1]}) {
+  for (int fd : {m_stdout_pipe[0], m_stdout_pipe[1], m_stderr_pipe[0],
+                 m_stderr_pipe[1]}) {
     if (fd != -1) {
       close(fd);
     }
   }
-  mStdoutPipe[0] = mStdoutPipe[1] = -1;
-  mStderrPipe[0] = mStderrPipe[1] = -1;
+  m_stdout_pipe[0] = m_stdout_pipe[1] = -1;
+  m_stderr_pipe[0] = m_stderr_pipe[1] = -1;
 }
 
 bool Subprocess::CreatePipes() {
-  if (pipe(mStdoutPipe.data()) == -1) {
+  if (pipe(m_stdout_pipe.data()) == -1) {
     LOG(ERROR) << "Error: Failed to create stdout pipe - " << strerror(errno);
     return false;
   }
 
-  if (pipe(mStderrPipe.data()) == -1) {
+  if (pipe(m_stderr_pipe.data()) == -1) {
     LOG(ERROR) << "Error: Failed to create stderr pipe - " << strerror(errno);
-    close(mStdoutPipe[0]);
-    close(mStdoutPipe[1]);
+    close(m_stdout_pipe[0]);
+    close(m_stdout_pipe[1]);
     return false;
   }
 
@@ -249,13 +250,13 @@ bool Subprocess::CreatePipes() {
 void Subprocess::ChildProcess(const std::string &command,
                               const std::vector<std::string> &args,
                               const std::vector<std::string> &env) {
-  dup2(mStdoutPipe[1], STDOUT_FILENO);
-  dup2(mStderrPipe[1], STDERR_FILENO);
+  dup2(m_stdout_pipe[1], STDOUT_FILENO);
+  dup2(m_stderr_pipe[1], STDERR_FILENO);
 
-  close(mStdoutPipe[0]);
-  close(mStdoutPipe[1]);
-  close(mStderrPipe[0]);
-  close(mStderrPipe[1]);
+  close(m_stdout_pipe[0]);
+  close(m_stdout_pipe[1]);
+  close(m_stderr_pipe[0]);
+  close(m_stderr_pipe[1]);
 
   std::vector<std::string> full_args;
   full_args.push_back(command);
@@ -277,29 +278,29 @@ void Subprocess::ChildProcess(const std::string &command,
 }
 
 void Subprocess::Log(const std::string &message) const {
-  if (mLogCallback) {
-    mLogCallback("[Subprocess] " + message);
+  if (m_log_callback) {
+    m_log_callback("[Subprocess] " + message);
   }
 }
 
 bool Subprocess::CheckRunningAndUpdateStatus() {
   int status;
 
-  pid_t result = waitpid(mPid, &status, WNOHANG);
+  pid_t result = waitpid(m_pid, &status, WNOHANG);
 
-  if (result == mPid) {
-    mIsRunning = false;
+  if (result == m_pid) {
+    m_is_running = false;
 
     if (WIFEXITED(status)) {
-      mExitStatus = WEXITSTATUS(status);
-      LOG(INFO) << "Process exited with status " << mExitStatus;
+      m_exit_status = WEXITSTATUS(status);
+      LOG(INFO) << "Process exited with status " << m_exit_status;
     } else if (WIFSIGNALED(status)) {
-      mExitStatus = -WTERMSIG(status);
+      m_exit_status = -WTERMSIG(status);
       LOG(INFO) << "Process terminated by signal " << WTERMSIG(status);
     }
 
-    ReadFromPipe(mStdoutPipe[0], mStdoutBuffer);
-    ReadFromPipe(mStderrPipe[0], mStderrBuffer);
+    ReadFromPipe(m_stdout_pipe[0], m_stdout_buffer);
+    ReadFromPipe(m_stderr_pipe[0], m_stderr_buffer);
 
     ClosePipes();
     return false;

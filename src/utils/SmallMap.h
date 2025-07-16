@@ -11,7 +11,7 @@
 template <typename KeyType, typename ValueType> class SmallMap {
   using PairType = std::pair<KeyType, ValueType>;
   using StorageContainer = std::vector<PairType>;
-  StorageContainer Data;
+  StorageContainer data;
 
 public:
   using key_type = KeyType;
@@ -26,25 +26,25 @@ public:
 
   SmallMap() = default;
 
-  iterator Begin() noexcept { return Data.begin(); }
-  const_iterator Begin() const noexcept { return Data.cbegin(); }
-  const_iterator CBegin() const noexcept { return Data.cbegin(); }
+  iterator Begin() noexcept { return data.begin(); }
+  const_iterator Begin() const noexcept { return data.cbegin(); }
+  const_iterator CBegin() const noexcept { return data.cbegin(); }
 
-  iterator End() noexcept { return Data.end(); }
-  const_iterator End() const noexcept { return Data.cend(); }
-  const_iterator CEnd() const noexcept { return Data.cend(); }
+  iterator End() noexcept { return data.end(); }
+  const_iterator End() const noexcept { return data.cend(); }
+  const_iterator CEnd() const noexcept { return data.cend(); }
 
   // Capacity
-  [[nodiscard]] bool IsEmpty() const noexcept { return Data.empty(); }
-  size_type GetSize() const noexcept { return Data.size(); }
+  [[nodiscard]] bool IsEmpty() const noexcept { return data.empty(); }
+  size_type GetSize() const noexcept { return data.size(); }
 
   mapped_type &operator[](const KeyType &Key) {
     auto it = Find(Key);
     if (it != End()) {
       return it->second;
     }
-    Data.emplace_back(Key, mapped_type{});
-    return Data.back().second;
+    data.emplace_back(Key, mapped_type{});
+    return data.back().second;
   }
 
   mapped_type &operator[](KeyType &&Key) {
@@ -52,8 +52,8 @@ public:
     if (it != End()) {
       return it->second;
     }
-    Data.emplace_back(std::move(Key), mapped_type{});
-    return Data.back().second;
+    data.emplace_back(std::move(Key), mapped_type{});
+    return data.back().second;
   }
 
   template <typename K> mapped_type &At(const K &KeyToFind) {
@@ -73,14 +73,14 @@ public:
   }
 
   template <typename K> iterator Find(const K &KeyToFind) {
-    return std::find_if(Data.begin(), Data.end(),
+    return std::find_if(data.begin(), data.end(),
                         [&KeyToFind](const PairType &CurrentPair) {
                           return CurrentPair.first == KeyToFind;
                         });
   }
 
   template <typename K> const_iterator Find(const K &KeyToFind) const {
-    return std::find_if(Data.cbegin(), Data.cend(),
+    return std::find_if(data.cbegin(), data.cend(),
                         [&KeyToFind](const PairType &CurrentPair) {
                           return CurrentPair.first == KeyToFind;
                         });
@@ -90,7 +90,7 @@ public:
     return Find(KeyToFind) != CEnd();
   }
 
-  void Clear() noexcept { Data.clear(); }
+  void Clear() noexcept { data.clear(); }
 
   std::pair<iterator, bool> Insert(const value_type &Value) {
     const KeyType &key = Value.first;
@@ -98,8 +98,8 @@ public:
     if (it != End()) {
       return {it, false};
     }
-    Data.push_back(Value);
-    return {std::prev(Data.end()), true};
+    data.push_back(Value);
+    return {std::prev(data.end()), true};
   }
 
   std::pair<iterator, bool> Insert(value_type &&Value) {
@@ -108,8 +108,8 @@ public:
     if (it != End()) {
       return {it, false};
     }
-    Data.push_back(std::move(Value));
-    return {std::prev(Data.end()), true};
+    data.push_back(std::move(Value));
+    return {std::prev(data.end()), true};
   }
 
   template <typename... ArgTypes>
@@ -121,40 +121,40 @@ public:
     if (it != End()) {
       return {it, false};
     }
-    Data.emplace_back(std::forward<ArgTypes>(Args)...);
-    return {std::prev(Data.end()), true};
+    data.emplace_back(std::forward<ArgTypes>(Args)...);
+    return {std::prev(data.end()), true};
   }
 
   iterator Erase(const_iterator Pos) {
-    difference_type dist = std::distance(Data.cbegin(), Pos);
-    auto it = Data.begin();
+    difference_type dist = std::distance(data.cbegin(), Pos);
+    auto it = data.begin();
     std::advance(it, dist);
-    return Data.erase(it);
+    return data.erase(it);
   }
 
-  iterator Erase(iterator Pos) { return Data.erase(Pos); }
+  iterator Erase(iterator Pos) { return data.erase(Pos); }
 
   template <typename K> size_type Erase(const K &KeyToErase) {
     auto it = Find(KeyToErase);
     if (it != End()) {
-      Data.erase(it);
+      data.erase(it);
       return 1;
     }
     return 0;
   }
 
-  PairType &Front() { return Data.front(); }
+  PairType &Front() { return data.front(); }
 
-  PairType &Back() { return Data.back(); }
+  PairType &Back() { return data.back(); }
 
   void ForEach(const std::function<void(const KeyType &, const ValueType &)>
                    &Func) const {
-    for (const auto &pair : Data) {
+    for (const auto &pair : data) {
       Func(pair.first, pair.second);
     }
   }
 
-  void Swap(SmallMap &Other) noexcept { Data.swap(Other.Data); }
+  void Swap(SmallMap &Other) noexcept { data.swap(Other.data); }
 };
 
 template <typename KeyType, typename ValueType>

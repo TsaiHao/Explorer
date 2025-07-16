@@ -29,9 +29,9 @@ public:
 
 private:
   // todo: optimize memory layout
-  StatusCode mCode{StatusCode::kOk};
+  StatusCode m_code{StatusCode::kOk};
 #ifdef EXP_DEBUG
-  std::string mMessage;
+  std::string m_message;
 #endif
 };
 

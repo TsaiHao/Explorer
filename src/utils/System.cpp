@@ -95,13 +95,13 @@ bool EnumerateProcesses(const EnumerateProcessCallback &callback) {
     }
 
     ProcessInfo info;
-    info.Pid = std::stoi(entry->d_name);
+    info.pid = std::stoi(entry->d_name);
     std::string const proc_dir_name = "/proc/" + filepath;
 
-    info.Command = ReadFileToBuffer(proc_dir_name + "/comm", true);
-    info.CmdLine = ReadFileToBuffer(proc_dir_name + "/cmdline", true);
-    if (!info.Command.empty() && info.Command.back() == '\n') {
-      info.Command.pop_back();
+    info.command = ReadFileToBuffer(proc_dir_name + "/comm", true);
+    info.cmd_line = ReadFileToBuffer(proc_dir_name + "/cmdline", true);
+    if (!info.command.empty() && info.command.back() == '\n') {
+      info.command.pop_back();
     }
 
     if (callback(info)) {
@@ -125,7 +125,7 @@ std::vector<ProcessInfo> ListAllRunningProcesses() {
 std::optional<ProcessInfo> FindProcessByPid(pid_t pid) {
   if (ProcessInfo process;
       EnumerateProcesses([&process, pid](const ProcessInfo &info) {
-        if (info.Pid == pid) {
+        if (info.pid == pid) {
           process = info;
           return true;
         }
@@ -139,8 +139,8 @@ std::optional<ProcessInfo> FindProcessByPid(pid_t pid) {
 std::optional<ProcessInfo> FindProcessByName(std::string_view name) {
   if (ProcessInfo process;
       EnumerateProcesses([&process, name](const ProcessInfo &info) {
-        if (info.Command == name || info.CmdLine == name ||
-            GetBaseName(info.CmdLine) == name) {
+        if (info.command == name || info.cmd_line == name ||
+            GetBaseName(info.cmd_line) == name) {
           process = info;
           return true;
         }

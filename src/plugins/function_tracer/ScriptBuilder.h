@@ -23,36 +23,36 @@ public:
   std::string Build() const;
 
   Self &EnableBacktrace(bool enable) {
-    mEnableBacktrace = enable;
+    m_enable_backtrace = enable;
     return *this;
   }
 
   Self &EnableArguments(bool enable) {
-    mEnableArguments = enable;
+    m_enable_arguments = enable;
     return *this;
   }
 
   Self &EnableAtrace(bool enable) {
-    mEnableAtrace = enable;
+    m_enable_atrace = enable;
     return *this;
   }
 
   Self &EnableLogcat(bool enable) {
-    mEnableLogcat = enable;
+    m_enable_logcat = enable;
     return *this;
   }
 
   Self &SetArgumentTransform(std::vector<Transform> transforms) {
-    mTransform = std::move(transforms);
+    m_transform = std::move(transforms);
     return *this;
   }
 
 private:
-  bool mEnableBacktrace = false;
-  bool mEnableArguments = false;
-  bool mEnableAtrace = false;
-  bool mEnableLogcat = false;
+  bool m_enable_backtrace = false;
+  bool m_enable_arguments = false;
+  bool m_enable_atrace = false;
+  bool m_enable_logcat = false;
 
-  std::vector<Transform> mTransform;
+  std::vector<Transform> m_transform;
 };
 } // namespace plugin

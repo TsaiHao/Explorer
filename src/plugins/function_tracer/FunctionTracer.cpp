@@ -41,11 +41,11 @@ public:
 
 protected:
   Status LoadScript(frida::Session *session) {
-    CHECK(mScript == nullptr);
+    CHECK(m_script == nullptr);
 
     auto *script = session->GetScript(kScriptName);
     if (script != nullptr) {
-      mScript = script;
+      m_script = script;
       return Ok();
     }
 
@@ -59,7 +59,7 @@ protected:
     CHECK(script != nullptr);
 
     script->Load();
-    mScript = script;
+    m_script = script;
 
     return Ok();
   }
@@ -74,7 +74,7 @@ protected:
     return trace_config;
   }
 
-  frida::Script *mScript{nullptr};
+  frida::Script *m_script{nullptr};
 };
 
 class NativeTracerImpl : public FunctionTracer::Impl {
@@ -83,9 +83,9 @@ public:
 
   ~NativeTracerImpl() override {
     LOG(DEBUG) << "Destroying NativeTracerImpl @ " << this;
-    if (mScript != nullptr) {
-      mScript->Unload();
-      mScript = nullptr;
+    if (m_script != nullptr) {
+      m_script->Unload();
+      m_script = nullptr;
     }
   }
 
@@ -109,7 +109,7 @@ public:
     snprintf(params.data(), params.size(), R"(["%s", "%s", "%s"])", ns.c_str(),
              cls.c_str(), method.c_str());
     frida::RpcResult symbols =
-        mScript->RpcCallSync("resolveNativeSymbols", params.data());
+        m_script->RpcCallSync("resolveNativeSymbols", params.data());
     if (!symbols) {
       LOG(ERROR) << "Failed to resolve native symbols: "
                  << symbols.error().dump();
@@ -129,13 +129,13 @@ public:
   }
 
   Status Activate() override {
-    if (!mTraceArguments.has_value()) {
+    if (!m_trace_arguments.has_value()) {
       LOG(ERROR) << "Cannot activate tracer, maybe symbols are not resolved";
       return InvalidState("No symbols resolved");
     }
 
-    frida::RpcResult result =
-        mScript->RpcCallSync("traceNativeFunctions", mTraceArguments.value());
+    frida::RpcResult result = m_script->RpcCallSync("traceNativeFunctions",
+                                                    m_trace_arguments.value());
     if (!result) {
       LOG(ERROR) << "Failed to activate native tracer: "
                  << result.error().dump();
@@ -143,7 +143,7 @@ public:
     }
 
     LOG(INFO) << "Native tracer activated with arguments: "
-              << mTraceArguments.value();
+              << m_trace_arguments.value();
     return Ok();
   }
 
@@ -184,11 +184,11 @@ private:
     trace_args.emplace_back(std::move(identifiers));
     trace_args.emplace_back(std::move(trace_config));
 
-    mTraceArguments = trace_args.dump();
-    LOG(DEBUG) << "Composed trace arguments: " << *mTraceArguments;
+    m_trace_arguments = trace_args.dump();
+    LOG(DEBUG) << "Composed trace arguments: " << *m_trace_arguments;
   }
 
-  std::optional<std::string> mTraceArguments;
+  std::optional<std::string> m_trace_arguments;
 };
 
 class JavaTracerImpl : public FunctionTracer::Impl {
@@ -217,7 +217,7 @@ public:
     snprintf(params.data(), params.size(), R"(["%s", "%s"])", cls.c_str(),
              method.c_str());
     frida::RpcResult symbols =
-        mScript->RpcCallSync("resolveJavaSignature", params.data());
+        m_script->RpcCallSync("resolveJavaSignature", params.data());
     if (!symbols) {
       LOG(ERROR) << "Failed to resolve java symbols: "
                  << symbols.error().dump();
@@ -237,20 +237,20 @@ public:
   }
 
   Status Activate() override {
-    if (!mTraceArguments.has_value()) {
+    if (!m_trace_arguments.has_value()) {
       LOG(ERROR) << "Cannot activate tracer, maybe symbols are not resolved";
       return InvalidState("Activation failed");
     }
 
     frida::RpcResult result =
-        mScript->RpcCallSync("traceJavaMethods", mTraceArguments.value());
+        m_script->RpcCallSync("traceJavaMethods", m_trace_arguments.value());
     if (!result) {
       LOG(ERROR) << "Failed to activate java tracer: " << result.error().dump();
       return SdkFailure("Failed to activate java tracer");
     }
 
     LOG(INFO) << "Java tracer activated with arguments: "
-              << mTraceArguments.value();
+              << m_trace_arguments.value();
     return Ok();
   }
 
@@ -265,11 +265,11 @@ private:
     trace_args.emplace_back(symbols);
     trace_args.emplace_back(trace_config);
 
-    mTraceArguments = trace_args.dump();
-    LOG(DEBUG) << "Composed trace arguments: " << *mTraceArguments;
+    m_trace_arguments = trace_args.dump();
+    LOG(DEBUG) << "Composed trace arguments: " << *m_trace_arguments;
   }
 
-  std::optional<std::string> mTraceArguments;
+  std::optional<std::string> m_trace_arguments;
 };
 
 FunctionTracer::FunctionTracer() = default;
@@ -288,18 +288,18 @@ Status FunctionTracer::Init(frida::Session *session,
 
   const auto &type = config["type"].get_ref<const std::string &>();
   if (type == "native") {
-    mImpl = std::make_unique<NativeTracerImpl>();
+    m_impl = std::make_unique<NativeTracerImpl>();
   } else if (type == "java") {
-    mImpl = std::make_unique<JavaTracerImpl>();
+    m_impl = std::make_unique<JavaTracerImpl>();
   } else {
     LOG(ERROR) << "Invalid type for function tracer: " << type;
     return BadArgument("Invalid type for function tracer");
   }
 
-  return mImpl->Init(session, config);
+  return m_impl->Init(session, config);
 }
 
-Status FunctionTracer::Activate() { return mImpl->Activate(); }
+Status FunctionTracer::Activate() { return m_impl->Activate(); }
 
-Status FunctionTracer::Deactivate() { return mImpl->Deactivate(); }
+Status FunctionTracer::Deactivate() { return m_impl->Deactivate(); }
 } // namespace plugin
