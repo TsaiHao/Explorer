@@ -33,6 +33,8 @@ public:
   Status LoadPlugins(const nlohmann::json &config);
 
   Script *GetScript(std::string_view name) const;
+  Status RemoveScript(std::string_view name);
+
   pid_t GetPid() const { return mPid; }
 
 private:

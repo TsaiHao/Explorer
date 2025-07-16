@@ -17,7 +17,6 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <vector>
 
 namespace frida {
 class Session;
@@ -25,8 +24,8 @@ using RpcResult = std::expected<nlohmann::json, nlohmann::json>;
 
 class Script {
 public:
-  using OnMessageCallback =
-      std::function<void(Script *, std::string_view, std::vector<uint8_t>)>;
+  using OnMessageCallback = std::function<void(
+      Script *, const nlohmann::json &, const uint8_t *data, size_t data_size)>;
 
   Script(std::string_view name, std::string_view source, FridaSession *session);
   ~Script();

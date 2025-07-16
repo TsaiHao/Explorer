@@ -6,6 +6,8 @@
 #include "utils/Log.h"
 
 #include "nlohmann/json.hpp"
+#include <cstdint>
+#include <cstdio>
 #include <mutex>
 using nlohmann::json;
 
@@ -273,22 +275,22 @@ void Script::ProcessMessage(const FridaScript *script, std::string_view message,
     return;
   }
 
-  LOG(DEBUG) << "Processing message " << message;
   gsize size = 0;
 
-  std::vector<uint8_t> bytes;
+  const uint8_t *data_pointer = nullptr;
+  size_t data_size = 0;
+
   if (UNLIKELY(data != nullptr)) {
     if (const auto *pointer = g_bytes_get_data(data, &size);
         pointer != nullptr && size > 0) {
-      bytes.resize(size);
-      const auto *p = static_cast<const uint8_t *>(pointer);
-      std::copy_n(p, size, bytes.begin());
+      data_pointer = reinterpret_cast<const uint8_t *>(pointer);
+      data_size = size;
     }
   }
 
   LOCK();
   for (const auto &callback : mCallbacks | std::views::values) {
-    callback(this, message, bytes);
+    callback(this, message, data_pointer, data_size);
   }
 }
 } // namespace frida

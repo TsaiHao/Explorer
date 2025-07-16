@@ -4,11 +4,11 @@
 #include "frida/Script.h"
 
 namespace plugin {
-class FunctionTracer : public Plugin {
+class SslDumper : public Plugin {
 public:
-  FunctionTracer();
+  SslDumper();
 
-  ~FunctionTracer() override;
+  ~SslDumper() override;
 
   Status Init(frida::Session *session, const nlohmann::json &config) override;
 
@@ -16,7 +16,7 @@ public:
 
   Status Deactivate() override;
 
-  static constexpr std::string_view Identifier() { return "trace"; }
+  static constexpr std::string_view Identifier() { return "ssl_dumper"; }
 
   class Impl;
 

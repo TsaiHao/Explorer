@@ -15,7 +15,7 @@ using nlohmann::json;
 
 namespace plugin {
 namespace {
-constexpr std::string_view kScriptName = "_TracerScript";
+constexpr std::string_view kScriptName = FunctionTracer::Identifier();
 constexpr std::string_view kAddressKey = "address";
 constexpr std::string_view kNameKey = "name";
 constexpr std::array<std::string_view, 1> kIgnoreSymbolPrefixes = {"__Thumb"};

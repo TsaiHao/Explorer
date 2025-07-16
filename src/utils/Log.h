@@ -40,7 +40,7 @@ constexpr const char *GetBaseFilename(const char *path) {
     if (auto _check_result = (condition); !_check_result) [[unlikely]] {       \
       LOG(FATAL) << "condition " << #condition << " check failed. msg: ";      \
     }                                                                          \
-  } while (0)
+  } while (false)
 
 #define CHECK_STATUS(status)                                                   \
   if (!(status).Ok()) [[unlikely]]                                             \

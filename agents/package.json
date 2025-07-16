@@ -6,10 +6,9 @@
   "main": "agent.ts",
   "scripts": {
     "build_function_tracer": "frida-compile FunctionTracer.ts -S -o ../src/plugins/function_tracer/FunctionTracer.js",
-    "buildssl": "frida-compile ssl_logger.ts -c -o ../output/ssl_logger.js",
-    "buildframe": "frida-compile frame_tracer.ts -c -o ../output/frame_tracer.js",
-    "watch_function_tracer": "frida-compile FunctionTracer.ts -w -S -o ../output/agent.js",
-    "watchssl": "frida-compile ssl_logger.ts -w -o ../output/ssl_logger.js"
+    "build_ssl": "frida-compile SslDumper.ts -S -o ../src/plugins/ssl_dumper/SslDumper.js",
+    "watch_function_tracer": "frida-compile FunctionTracer.ts -w -S -o ../src/plugins/function_tracer/FunctionTracer.js",
+    "watch_ssl": "frida-compile SslDumper.ts -w -S -o ../src/plugins/ssl_dumper/SslDumper.js"
   },
   "devDependencies": {
     "@types/frida-gum": "^18.7.0",

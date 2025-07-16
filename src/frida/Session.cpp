@@ -163,4 +163,14 @@ Script *Session::GetScript(std::string_view name) const {
   return mScripts.At(name).get();
 }
 
+Status Session::RemoveScript(std::string_view name) {
+  if (!mScripts.Contains(name)) {
+    return NotFound("Script not found");
+  }
+  auto script = std::move(mScripts.At(name));
+  mScripts.Erase(name);
+  script->Unload();
+  return Ok();
+}
+
 } // namespace frida

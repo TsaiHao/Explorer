@@ -165,7 +165,7 @@ Status Device::Resume() {
     GError *error = nullptr;
     frida_device_resume_sync(mDevice, pid, nullptr, &error);
     if (error != nullptr) {
-      //LOG(ERROR) << "Error resuming frida device: " << error->message;
+      // LOG(ERROR) << "Error resuming frida device: " << error->message;
       g_error_free(error);
       // todo: fix this "Invalid PID" error
       // return SdkFailure("frida resume api failed");
