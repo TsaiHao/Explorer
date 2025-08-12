@@ -216,6 +216,9 @@ bool Script::MaybeProcessSystemMessage(nlohmann::json &msg) {
           return true;
         }
       }
+    } else {
+      LOG(WARNING) << "Received send message without payload: " << msg.dump();
+      return false;
     }
   }
 
@@ -270,6 +273,7 @@ void Script::ProcessMessage(const FridaScript *script, std::string_view message,
                             GBytes *data) {
   CHECK(script == m_script);
 
+  LOG(DEBUG) << "Processing message: " << message;
   auto msg_obj = json::parse(message);
   if (MaybeProcessSystemMessage(msg_obj)) {
     return;

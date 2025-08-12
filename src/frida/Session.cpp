@@ -107,6 +107,7 @@ Status Session::LoadInlineScriptsFromConfig(const nlohmann::json &config) {
   LOG(INFO) << "Loaded user scripts";
   return Ok();
 }
+
 Status Session::LoadScriptFilesFromConfig(const nlohmann::json &config) {
   if (!config.contains(kScriptFilesKey)) {
     LOG(DEBUG) << "No script files to load";

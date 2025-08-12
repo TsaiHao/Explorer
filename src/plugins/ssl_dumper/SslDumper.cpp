@@ -144,6 +144,9 @@ private:
       return;
     }
 
+    auto size32 = static_cast<uint32_t>(size);
+    m_file_writer->Write(reinterpret_cast<const uint8_t *>(&size32), sizeof(size32));
+
     m_file_writer->Write(data, size);
     LOG(DEBUG) << "(SslDumper) Wrote " << size
                << " bytes of SSL data to file, total written: "
