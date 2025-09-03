@@ -2,6 +2,7 @@
 /.idea
 /.DS_Store
 /build
+/release
 /build-mac
 /frida_temp_extract_dir
 /sqlite_temp_extract_dir

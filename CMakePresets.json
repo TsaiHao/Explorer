@@ -14,6 +14,21 @@
                 "ENABLE_DEBUG": "ON",
                 "TARGET_ANDROID": "ON"
             }
+        },
+        {
+            "name": "android-arm7-release",
+            "displayName": "Android ARM7 release Build",
+            "description": "Build for Android ARM7 architecture in release mode",
+            "binaryDir": "${sourceDir}/release",
+            "generator": "Ninja",
+            "toolchainFile": "$env{ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ANDROID_ABI": "armeabi-v7a",
+                "ANDROID_PLATFORM": "android-31",
+                "ENABLE_DEBUG": "OFF",
+                "TARGET_ANDROID": "ON"
+            }
         }
     ]
 }

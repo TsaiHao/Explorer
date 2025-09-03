@@ -29,7 +29,7 @@ std::string_view GetCodeString(StatusCode code) {
 
 Status::Status() = default;
 
-Status::Status(StatusCode code, std::string_view message)
+Status::Status(StatusCode code, [[maybe_unused]] std::string_view message)
     : m_code(code)
 #ifdef EXP_DEBUG
       ,
