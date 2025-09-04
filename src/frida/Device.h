@@ -4,7 +4,6 @@
 #pragma once
 
 #include "Session.h"
-#include "frida/include/frida-core.h"
 #include "nlohmann/json.hpp"
 #include "utils/SmallMap.h"
 #include "utils/System.h"

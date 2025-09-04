@@ -2,7 +2,9 @@
 // Created by Hao, Zaijun on 2025/4/27.
 //
 #include "Application.h"
-#include "frida-core.h"
+
+// todo: move this header to frida/
+#include "frida/FridaHelper.h"
 #include "frida/Device.h"
 #include "nlohmann/json.hpp"
 #include "utils/Log.h"

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Script.h"
-#include "frida/include/frida-core.h"
 #include "plugins/Plugin.h"
 #include "utils/SmallMap.h"
 

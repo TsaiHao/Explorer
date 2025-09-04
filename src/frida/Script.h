@@ -3,11 +3,10 @@
 //
 #pragma once
 
-#include "frida-core.h"
+#include "FridaHelper.h"
 #include "nlohmann/json.hpp"
 #include "utils/Macros.h"
 #include "utils/SmallMap.h"
-#include "utils/Status.h"
 
 #include <atomic>
 #include <condition_variable>

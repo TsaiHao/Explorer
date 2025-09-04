@@ -97,8 +97,7 @@ void TestInsertAndSelect() {
   CHECK(std::get<std::string>(select_stmt.GetColumn(1)) == name);
   CHECK(std::get<int64_t>(select_stmt.GetColumn(2)) == age);
   CHECK(std::abs(std::get<double>(select_stmt.GetColumn(3)) - height) < 0.001);
-  CHECK(std::get<std::vector<uint8_t>>(select_stmt.GetColumn(4)) ==
-         photo_data);
+  CHECK(std::get<std::vector<uint8_t>>(select_stmt.GetColumn(4)) == photo_data);
 
   LOG(INFO) << "Verified John Doe's data.";
   CHECK(!select_stmt.Step());
