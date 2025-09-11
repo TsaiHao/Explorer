@@ -51,7 +51,7 @@ protected:
 
     auto status = session->CreateScript(kScriptName, kScriptSource);
     if (!status.Ok()) {
-      LOG(ERROR) << "Failed to create script: " << status.Message();
+      LOGE("Failed to create script: {}", status.Message());
       return status;
     }
 
@@ -79,10 +79,10 @@ protected:
 
 class NativeTracerImpl : public FunctionTracer::Impl {
 public:
-  NativeTracerImpl() { LOG(DEBUG) << "Creating NativeTracerImpl @ " << this; };
+  NativeTracerImpl() { LOGD("Creating NativeTracerImpl @ {}", (void *)this); };
 
   ~NativeTracerImpl() override {
-    LOG(DEBUG) << "Destroying NativeTracerImpl @ " << this;
+    LOGD("Destroying NativeTracerImpl @ {}", (void *)this);
     if (m_script != nullptr) {
       m_script->Unload();
       m_script = nullptr;
@@ -99,9 +99,9 @@ public:
     const std::string method = config.value("method", "");
 
     if (ns.empty() && cls.empty() && method.empty()) {
-      LOG(ERROR) << "Invalid configuration for function tracer: "
-                 << "namespace: " << ns << ", class: " << cls
-                 << ", method: " << method;
+      LOGE("Invalid configuration for function tracer: "
+           "namespace: {}, class: {}, method: {}",
+           ns, cls, method);
       return BadArgument("Invalid configuration for function tracer");
     }
 
@@ -111,18 +111,16 @@ public:
     frida::RpcResult symbols =
         m_script->RpcCallSync("resolveNativeSymbols", params.data());
     if (!symbols) {
-      LOG(ERROR) << "Failed to resolve native symbols: "
-                 << symbols.error().dump();
+      LOGE("Failed to resolve native symbols: {}", symbols.error().dump());
       return SdkFailure("Failed to resolve native symbols");
     }
     if (symbols->empty()) {
-      LOG(WARNING) << "No native symbols resolved for "
-                   << "namespace: " << ns << ", class: " << cls
-                   << ", method: " << method;
+      LOGW("No native symbols resolved for {}", symbols->dump());
       return NotFound("No native symbols resolved");
     }
 
-    LOG(DEBUG) << "Resolved " << symbols.value().size() << " native symbols: ";
+    LOGD("Resolved {} native symbols: {}", symbols.value().size(),
+         symbols.value().dump());
     ComposeTraceArguments(symbols.value(), config);
 
     return Ok();
@@ -130,20 +128,19 @@ public:
 
   Status Activate() override {
     if (!m_trace_arguments.has_value()) {
-      LOG(ERROR) << "Cannot activate tracer, maybe symbols are not resolved";
+      LOGE("Cannot activate tracer, maybe symbols are not resolved");
       return InvalidState("No symbols resolved");
     }
 
     frida::RpcResult result = m_script->RpcCallSync("traceNativeFunctions",
                                                     m_trace_arguments.value());
     if (!result) {
-      LOG(ERROR) << "Failed to activate native tracer: "
-                 << result.error().dump();
+      LOGE("Failed to activate native tracer: {}", result.error().dump());
       return SdkFailure("Failed to activate native tracer");
     }
 
-    LOG(INFO) << "Native tracer activated with arguments: "
-              << m_trace_arguments.value();
+    LOGI("Native tracer activated with arguments: {}",
+         m_trace_arguments.value());
     return Ok();
   }
 
@@ -157,16 +154,16 @@ private:
     std::vector<std::string> identifiers;
     json trace_config = ComposeTraceConfig(config);
 
-    LOG(DEBUG) << "Composing trace arguments for " << symbols.dump(1);
+    LOGD("Composing trace arguments for {}", symbols.dump(1));
     for (const auto &symbol : symbols) {
       if (!symbol.contains(kAddressKey) || !symbol.contains(kNameKey)) {
-        LOG(ERROR) << "Invalid symbol: " << symbol.dump();
+        LOGE("Invalid symbol: {}", symbol.dump());
         continue;
       }
       const auto &name = symbol[kNameKey].get_ref<const std::string &>();
 
       if (ShouldIgnoreSymbol(name)) {
-        LOG(DEBUG) << "Ignoring symbol: " << name;
+        LOGD("Ignoring symbol: {}", name);
         continue;
       }
 
@@ -185,7 +182,7 @@ private:
     trace_args.emplace_back(std::move(trace_config));
 
     m_trace_arguments = trace_args.dump();
-    LOG(DEBUG) << "Composed trace arguments: " << *m_trace_arguments;
+    LOGD("Composed trace arguments: {}", *m_trace_arguments);
   }
 
   std::optional<std::string> m_trace_arguments;
@@ -193,10 +190,10 @@ private:
 
 class JavaTracerImpl : public FunctionTracer::Impl {
 public:
-  JavaTracerImpl() { LOG(DEBUG) << "Creating JavaTracerImpl @ " << this; };
+  JavaTracerImpl() { LOGD("Creating JavaTracerImpl @ {}", (void *)this); };
 
   ~JavaTracerImpl() override {
-    LOG(DEBUG) << "Destroying JavaTracerImpl @ " << this;
+    LOGD("Destroying JavaTracerImpl @ {}", (void *)this);
   }
 
   Status Init(frida::Session *session, const nlohmann::json &config) override {
@@ -208,8 +205,9 @@ public:
     const std::string method = config.value("method", "");
 
     if (cls.empty() || method.empty()) {
-      LOG(ERROR) << "Invalid configuration for function tracer: "
-                 << "class: " << cls << ", method: " << method;
+      LOGE("Invalid configuration for function tracer: "
+           "class: {}, method: {}",
+           cls, method);
       return BadArgument("Invalid configuration for function tracer");
     }
 
@@ -219,18 +217,16 @@ public:
     frida::RpcResult symbols =
         m_script->RpcCallSync("resolveJavaSignature", params.data());
     if (!symbols) {
-      LOG(ERROR) << "Failed to resolve java symbols: "
-                 << symbols.error().dump();
+      LOGE("Failed to resolve java symbols: {}", symbols.error().dump());
       return SdkFailure("Failed to resolve java symbols");
     }
     if (symbols->empty()) {
-      LOG(WARNING) << "No java symbols resolved for "
-                   << "class: " << cls << ", method: " << method;
+      LOGW("No java symbols resolved for {}", symbols->dump());
       return NotFound("No java symbols resolved");
     }
 
-    LOG(DEBUG) << "Resolved " << symbols.value().size()
-               << " java symbols: " << symbols.value().dump(1);
+    LOGD("Resolved {} java symbols: {}", symbols.value().size(),
+         symbols.value().dump(1));
     ComposeTraceArguments(symbols.value(), config);
 
     return Ok();
@@ -238,19 +234,18 @@ public:
 
   Status Activate() override {
     if (!m_trace_arguments.has_value()) {
-      LOG(ERROR) << "Cannot activate tracer, maybe symbols are not resolved";
+      LOGE("Cannot activate tracer, maybe symbols are not resolved");
       return InvalidState("Activation failed");
     }
 
     frida::RpcResult result =
         m_script->RpcCallSync("traceJavaMethods", m_trace_arguments.value());
     if (!result) {
-      LOG(ERROR) << "Failed to activate java tracer: " << result.error().dump();
+      LOGE("Failed to activate java tracer: {}", result.error().dump());
       return SdkFailure("Failed to activate java tracer");
     }
 
-    LOG(INFO) << "Java tracer activated with arguments: "
-              << m_trace_arguments.value();
+    LOGI("Java tracer activated with arguments: {}", m_trace_arguments.value());
     return Ok();
   }
 
@@ -266,7 +261,7 @@ private:
     trace_args.emplace_back(trace_config);
 
     m_trace_arguments = trace_args.dump();
-    LOG(DEBUG) << "Composed trace arguments: " << *m_trace_arguments;
+    LOGD("Composed trace arguments: {}", *m_trace_arguments);
   }
 
   std::optional<std::string> m_trace_arguments;
@@ -275,14 +270,13 @@ private:
 FunctionTracer::FunctionTracer() = default;
 
 FunctionTracer::~FunctionTracer() {
-  LOG(DEBUG) << "Destroying function tracer @ " << this;
+  LOGD("Destroying function tracer @ {}", (void *)this);
 }
 
 Status FunctionTracer::Init(frida::Session *session,
                             const nlohmann::json &config) {
   if (!config.contains("type")) {
-    LOG(ERROR) << "Invalid configuration for function tracer: "
-               << "type is required";
+    LOGE("Invalid configuration for function tracer: type is required");
     return BadArgument("Invalid configuration for function tracer");
   }
 
@@ -292,7 +286,7 @@ Status FunctionTracer::Init(frida::Session *session,
   } else if (type == "java") {
     m_impl = std::make_unique<JavaTracerImpl>();
   } else {
-    LOG(ERROR) << "Invalid type for function tracer: " << type;
+    LOGE("Invalid type for function tracer: {}", type);
     return BadArgument("Invalid type for function tracer");
   }
 

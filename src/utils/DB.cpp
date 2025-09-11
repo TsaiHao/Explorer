@@ -41,7 +41,7 @@ bool Statement::Bind(int index, int value) {
 
 bool Statement::Bind(int index, int64_t value) {
   if (sqlite3_bind_int64(m_stmt, index, value) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind int64: " << sqlite3_errmsg(m_db);
+    LOGI("Failed to bind int64: {}", sqlite3_errmsg(m_db));
     return false;
   }
   return true;
@@ -49,7 +49,7 @@ bool Statement::Bind(int index, int64_t value) {
 
 bool Statement::Bind(int index, double value) {
   if (sqlite3_bind_double(m_stmt, index, value) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind double: " << sqlite3_errmsg(m_db);
+    LOGI("Failed to bind double: {}", sqlite3_errmsg(m_db));
     return false;
   }
   return true;
@@ -59,7 +59,7 @@ bool Statement::Bind(int index, std::string_view text) {
   if (sqlite3_bind_text(m_stmt, index, text.data(),
                         static_cast<int>(text.length()),
                         SQLITE_TRANSIENT) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind text: " << sqlite3_errmsg(m_db);
+    LOGI("Failed to bind text: {}", sqlite3_errmsg(m_db));
     return false;
   }
   return true;
@@ -69,7 +69,7 @@ bool Statement::Bind(int index, const std::vector<uint8_t> &blob) {
   if (sqlite3_bind_blob(m_stmt, index, blob.data(),
                         static_cast<int>(blob.size()),
                         SQLITE_TRANSIENT) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind blob: " << sqlite3_errmsg(m_db);
+    LOGI("Failed to bind blob: {}", sqlite3_errmsg(m_db));
     return false;
   }
   return true;
@@ -77,7 +77,7 @@ bool Statement::Bind(int index, const std::vector<uint8_t> &blob) {
 
 bool Statement::BindNull(int index) {
   if (sqlite3_bind_null(m_stmt, index) != SQLITE_OK) {
-    LOG(INFO) << "Failed to bind null: " << sqlite3_errmsg(m_db);
+    LOGI("Failed to bind null: {}", sqlite3_errmsg(m_db));
     return false;
   }
   return true;
@@ -96,7 +96,7 @@ bool Statement::Step() {
     return false; // The statement has finished executing.
   }
 
-  LOG(INFO) << "Step error: " << sqlite3_errmsg(m_db);
+  LOGE("Step error: {}", sqlite3_errmsg(m_db));
   return false; // An error occurred.
 }
 
@@ -107,7 +107,7 @@ bool Statement::Execute() {
   }
 
   if (rc != SQLITE_DONE) {
-    LOG(INFO) << "Execute error: " << sqlite3_errmsg(m_db);
+    LOGE("Execute error: {}", sqlite3_errmsg(m_db));
     Reset();
     return false;
   }
@@ -133,11 +133,11 @@ int Statement::GetColumnType(int index) {
 
 Statement::Value Statement::GetColumn(int index) {
   if (!m_has_stepped) {
-    LOG(INFO) << "Cannot get column data before calling Step() at least once.";
+    LOGI("Cannot get column data before calling Step() at least once.");
     return {}; // Return monostate
   }
   if (index < 0 || index >= GetColumnCount()) {
-    LOG(INFO) << "Column index " << index << " is out of bounds.";
+    LOGI("Column index {} is out of bounds.", index);
     return {};
   }
 
@@ -168,11 +168,10 @@ DB::DB(const std::string &path, OpenMode mode) {
   int flags = static_cast<int>(mode);
   if (sqlite3_open_v2(path.c_str(), &m_db, flags, nullptr) != SQLITE_OK) {
     if (m_db != nullptr) {
-      LOG(INFO) << "Can't open database: " << sqlite3_errmsg(m_db);
+      LOGE("Can't open database: {}", sqlite3_errmsg(m_db));
       sqlite3_close(m_db);
     } else {
-      LOG(INFO)
-          << "Can't open database: sqlite3_open_v2 failed to allocate memory";
+      LOGE("Can't open database: sqlite3_open_v2 failed to allocate memory");
     }
     m_db = nullptr;
   }
@@ -211,7 +210,7 @@ bool DB::Execute(const std::string &sql) {
   char *err_msg = nullptr;
   if (sqlite3_exec(m_db, sql.c_str(), nullptr, nullptr, &err_msg) !=
       SQLITE_OK) {
-    LOG(INFO) << "SQL error: " << err_msg;
+    LOGE("SQL error: {}", err_msg);
     sqlite3_free(err_msg);
     return false;
   }
@@ -222,7 +221,7 @@ std::optional<Statement> DB::Prepare(const std::string &sql) {
   sqlite3_stmt *stmt = nullptr;
   if (sqlite3_prepare_v2(m_db, sql.c_str(), static_cast<int>(sql.length()),
                          &stmt, nullptr) != SQLITE_OK) {
-    LOG(INFO) << "Failed to prepare statement: " << GetLastErrorMsg();
+    LOGE("Failed to prepare statement: {}", GetLastErrorMsg());
     sqlite3_finalize(stmt); // It's safe to call finalize on a NULL pointer.
     return std::nullopt;
   }

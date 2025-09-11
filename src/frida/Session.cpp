@@ -14,11 +14,11 @@ constexpr std::string_view kScriptsKey = "script_source";
 } // namespace
 Session::Session(pid_t pid, FridaSession *session)
     : m_session(session), m_pid(pid) {
-  LOG(INFO) << "Creating session " << this;
+  LOGI("Creating session {}", (void *)this);
 }
 
 Session::~Session() {
-  LOG(INFO) << "Destroying session " << this;
+  LOGI("Destroying session {}", (void *)this);
   if (LIKELY(IsAttaching())) {
     Detach();
   }
@@ -28,7 +28,7 @@ Session::~Session() {
 }
 
 Status Session::CreateScript(std::string_view name, std::string_view source) {
-  LOG(DEBUG) << "Creating script " << name << " for process " << m_pid;
+  LOGD("Creating script {} for process {}", name, m_pid);
 
   if (m_scripts.Contains(std::string(name))) {
     return InvalidOperation("Duplicate name");
@@ -43,7 +43,7 @@ bool Session::IsAttaching() const { return m_attaching; }
 
 void Session::Resume() {
   if (m_attaching) {
-    LOG(WARNING) << "Resuming a running session " << this;
+    LOGW("Resuming a running session {}", (void *)this);
     return;
   }
   GError *error = nullptr;
@@ -55,7 +55,7 @@ void Session::Resume() {
 
 void Session::Detach() {
   if (!m_attaching) {
-    LOG(WARNING) << "Detaching an idle session " << this;
+    LOGW("Detaching an idle session {}", (void *)this);
     return;
   }
   GError *error = nullptr;
@@ -104,13 +104,13 @@ Status Session::LoadInlineScriptsFromConfig(const nlohmann::json &config) {
   } else {
     return BadArgument("Invalid scripts format");
   }
-  LOG(INFO) << "Loaded user scripts";
+  LOGI("Loaded user scripts");
   return Ok();
 }
 
 Status Session::LoadScriptFilesFromConfig(const nlohmann::json &config) {
   if (!config.contains(kScriptFilesKey)) {
-    LOG(DEBUG) << "No script files to load";
+    LOGD("No script files to load");
     return Ok();
   }
   auto const &script_files = config[kScriptFilesKey];
@@ -148,7 +148,7 @@ Status Session::LoadScriptFilesFromConfig(const nlohmann::json &config) {
   } else {
     return BadArgument("Invalid scripts format");
   }
-  LOG(INFO) << "Loaded user scripts from files";
+  LOGI("Loaded user scripts from files");
   return Ok();
 }
 

@@ -2,6 +2,8 @@
 // Created by Hao, Zaijun on 2025/4/27.
 //
 
+#include <iostream>
+
 #include "Application.h"
 #include "utils/Log.h"
 #include "utils/System.h"
@@ -15,19 +17,16 @@ int main() {
 
   if (utils::FileExists(kConfilFilePathRelative)) {
     config = utils::ReadFileToBuffer(kConfilFilePathRelative);
-    LOG(INFO) << "Using relative config file: " << kConfilFilePathRelative;
   } else if (utils::FileExists(kConfigFilePathAbsolute)) {
     config = utils::ReadFileToBuffer(kConfigFilePathAbsolute);
-    LOG(INFO) << "Using absolute config file: " << kConfigFilePathAbsolute;
   } else {
-    LOG(ERROR) << "Config file not found in either location: "
-               << kConfilFilePathRelative << " or " << kConfigFilePathAbsolute;
+    std::cerr << "Config file not found in either location: " << kConfilFilePathRelative << " or " << kConfigFilePathAbsolute << '\n';
     return 1;
   }
 
-  LOG(INFO) << "Starting application";
-
   const Application app(config);
+
+  LOGI("Starting application");
   app.Run();
 
   return 0;

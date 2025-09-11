@@ -8,6 +8,7 @@
 /sqlite_temp_extract_dir
 /third_party/frida
 /third_party/sqlite
+/third_party/spdlog
 
 /compile_commands.json
 /debug.js

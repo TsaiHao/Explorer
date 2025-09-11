@@ -5,6 +5,8 @@ set -ex
 readonly FRIDA_VERSION="17.0.6"
 readonly BASE_DEPS_DIR="third_party/frida"
 readonly NDK_PATH='/Users/zaijun/Library/Android/sdk/ndk/29.0.13113456'
+readonly SQLITE_VERSION='3500100'
+readonly SPDLOG_VERSION='1.15.3'
 
 usage() {
   echo "Usage: $0"
@@ -100,8 +102,7 @@ download_and_extract_frida() {
 }
 
 install_sqlite_source() {
-  local sqlite_version="3500100"
-  local sqlite_file_name="sqlite-amalgamation-${sqlite_version}"
+  local sqlite_file_name="sqlite-amalgamation-${SQLITE_VERSION}"
   local sqlite_zip_name="${sqlite_file_name}.zip"
   local sqlite_url="https://sqlite.org/2025/${sqlite_zip_name}"
   local sqlite_dir="third_party/sqlite"
@@ -143,11 +144,92 @@ install_sqlite_source() {
   rm -rf "${temp_extract_dir}"
 }
 
+install_spdlog() {
+  local spdlog_target_dir="third_party/spdlog"
+  
+  if [ -d "${spdlog_target_dir}" ] && [ -f "${spdlog_target_dir}/spdlog.h" ]; then
+    echo "spdlog already exists. Skipping download and extraction."
+    return
+  fi
+  
+  local SPDLOG_ARCHEVE_URL="https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSION}.tar.gz"
+  local archive_name="spdlog-${SPDLOG_VERSION}.tar.gz"
+  local temp_extract_dir="spdlog_temp_extract_dir"
+  local extracted_dir_name="spdlog-${SPDLOG_VERSION}"
+  
+  echo "spdlog version: ${SPDLOG_VERSION}"
+  echo "Download URL: ${SPDLOG_ARCHEVE_URL}"
+  
+  echo "Creating temporary directory for download and extraction: ${temp_extract_dir}"
+  rm -rf "${temp_extract_dir}" # Clean up if it exists from a failed previous run
+  mkdir -p "${temp_extract_dir}"
+  
+  local original_dir
+  original_dir=$(pwd)
+  cd "${temp_extract_dir}"
+  
+  echo "Downloading ${archive_name}..."
+  curl -L --fail --output "${archive_name}" "${SPDLOG_ARCHEVE_URL}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to download spdlog archive."
+    cd "${original_dir}"
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+  echo "Download complete."
+  
+  echo "Extracting ${archive_name}..."
+  tar -xzf "${archive_name}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to extract spdlog archive."
+    cd "${original_dir}"
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+  echo "Extraction complete."
+  
+  if [ ! -d "${extracted_dir_name}" ]; then
+    echo "Error: Expected directory ${extracted_dir_name} not found after extraction."
+    cd "${original_dir}"
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+  
+  if [ ! -d "${extracted_dir_name}/include/spdlog" ]; then
+    echo "Error: include/spdlog directory not found in extracted archive."
+    cd "${original_dir}"
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+  
+  cd "${original_dir}"
+  
+  echo "Installing spdlog headers to ${spdlog_target_dir}..."
+  mkdir -p "third_party"
+  
+  rm -rf "${spdlog_target_dir}"
+  
+  cp -r "${temp_extract_dir}/${extracted_dir_name}/include/spdlog" "${spdlog_target_dir}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to copy spdlog headers."
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+  
+  echo "spdlog headers installation complete."
+  
+  echo "Removing temporary download and extraction directory: ${temp_extract_dir}"
+  rm -rf "${temp_extract_dir}"
+  
+  echo "--- spdlog Dependencies Setup Complete ---"
+}
+
 main() {
   download_and_extract_frida
 
   install_sqlite_source
+  
+  install_spdlog
 }
 
 main "$@"
-

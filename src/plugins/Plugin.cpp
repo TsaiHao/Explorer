@@ -33,7 +33,7 @@ std::vector<std::unique_ptr<Plugin>> MakePlugin(frida::Session *session,
       if (plugin != nullptr) {
         plugins.push_back(std::move(plugin));
       } else {
-        LOG(ERROR) << "Failed to create plugin: " << plugin_config.key();
+        LOGE("Failed to create plugin: {}", plugin_config.key());
       }
     }
   }
@@ -44,7 +44,7 @@ std::vector<std::unique_ptr<Plugin>> MakePlugin(frida::Session *session,
     if (plugin != nullptr) {
       plugins.push_back(std::move(plugin));
     } else {
-      LOG(ERROR) << "Failed to create plugin: " << SslDumper::Identifier();
+      LOGE("Failed to create plugin: {}", SslDumper::Identifier());
     }
   }
 

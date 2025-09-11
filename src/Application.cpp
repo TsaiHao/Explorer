@@ -4,14 +4,17 @@
 #include "Application.h"
 
 // todo: move this header to frida/
-#include "frida/FridaHelper.h"
 #include "frida/Device.h"
 #include "nlohmann/json.hpp"
 #include "utils/Log.h"
 #include "utils/Status.h"
 #include "utils/System.h"
+
 #include <cstdlib>
 using nlohmann::json;
+
+#include "spdlog/sinks/android_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 constexpr std::string_view kSessionsKey = "sessions";
 
@@ -20,12 +23,41 @@ void AndroidEnvCheck() {
 #ifdef TARGET_ANDROID
   // Check if the application is running as root
   if (getuid() != 0) {
-    LOG(FATAL) << "This application must be run as root, exiting";
+    LOGE("This application must be run as root, exiting");
     exit(EXIT_FAILURE);
   }
   // Turn SELinux to permissive mode
   frida_selinux_patch_policy();
 #endif
+}
+
+void InitLogger() {
+    std::vector<spdlog::sink_ptr> sinks;
+    
+    auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    sinks.push_back(stdout_sink);
+    
+    auto android_sink = std::make_shared<spdlog::sinks::android_sink_mt>("Explorer", true);
+    sinks.push_back(android_sink);
+    
+    std::string format_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%P:%t] [%l] %v";
+    
+    for (auto& sink : sinks) {
+        sink->set_pattern(format_pattern);
+    }
+    
+    auto logger = std::make_shared<spdlog::logger>("default", sinks.begin(), sinks.end());
+    
+#ifdef EXP_DEBUG
+    logger->set_level(spdlog::level::trace);
+#else
+    logger->set_level(spdlog::level::info);
+#endif
+
+    logger->flush_on(spdlog::level::info);
+    
+    spdlog::set_default_logger(logger);
+    spdlog::flush_every(std::chrono::seconds(1));
 }
 } // namespace
 
@@ -43,10 +75,13 @@ private:
   std::unique_ptr<GMainLoop, LoopDeleter> m_loop;
   json m_original_config;
   std::vector<utils::ProcessInfo> m_process_infos;
+
   std::unique_ptr<frida::Device> m_device;
 };
 
 Application::Impl::Impl(std::string_view config) {
+  InitLogger();
+
   frida_init();
   AndroidEnvCheck();
 
@@ -56,20 +91,20 @@ Application::Impl::Impl(std::string_view config) {
 
   m_original_config = json::parse(config);
   if (!m_original_config.contains(kSessionsKey)) {
-    LOG(FATAL) << "Configuration must contain 'sessions' key, exiting";
+    LOGE("Configuration must contain a 'sessions' key, exiting");
     exit(EXIT_FAILURE);
   }
   // Discard the top-level key and focus on 'sessions'
   m_original_config = m_original_config[kSessionsKey];
   if (!m_original_config.is_array()) {
-    LOG(FATAL) << "Configuration 'sessions' must be an array, exiting";
+    LOGE("Configuration 'sessions' must be an array, exiting");
     exit(EXIT_FAILURE);
   }
 
   Status status = m_device->BuildSessionsFromConfig(m_original_config);
 
   if (!status.Ok()) {
-    LOG(FATAL) << "Failed to attach processes: " << status.Message();
+    LOGE("Failed to attach processes: {}", status.Message());
   }
 }
 
@@ -87,16 +122,16 @@ void Application::Impl::Run() const {
     g_main_loop_run(m_loop.get());
   }
 
-  LOG(INFO) << "Application main loop stopped running";
+  LOGI("Application main loop stopped running");
 }
 
 Application::Application(
     std::string_view config) // NOLINT(*-unnecessary-value-param)
     : m_impl(std::make_unique<Impl>(config)) {}
 
-Application::~Application() { LOG(INFO) << "Destroying Application" << this; }
+Application::~Application() { LOGI("Destroying Application {}", (void *)this); }
 
 void Application::Run() const {
-  LOG(INFO) << "Running Application " << this;
+  LOGI("Running Application {}", (void *)this);
   m_impl->Run();
 }

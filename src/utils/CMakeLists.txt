@@ -4,7 +4,6 @@ target_sources(exp_utils PRIVATE
         DB.h
         DB.cpp
         Log.h
-        Log.cpp
         Macros.h
         SmallMap.h
         Status.h

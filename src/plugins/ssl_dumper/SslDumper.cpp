@@ -50,7 +50,7 @@ private:
 class SslDumper::Impl {
 public:
   Impl() : m_file_writer(std::make_unique<SimpleBinFileWriter>()) {
-    LOG(INFO) << "Creating SslDumper::Impl";
+    LOGI("Creating SslDumper::Impl");
   }
   ~Impl() { Deactivate(); }
 
@@ -63,7 +63,7 @@ public:
       if (!status.Ok()) {
         return status;
       }
-      LOG(DEBUG) << "Initialized SslDumper with output path: " << output_path;
+      LOGD("Initialized SslDumper with output path: {}", output_path);
     } else {
       return BadArgument("Missing output path in configuration");
     }
@@ -77,8 +77,7 @@ public:
 
     auto *script = m_session->GetScript(kScriptName);
     if (script != nullptr) {
-      LOG(DEBUG) << "Script already loaded: " << kScriptName
-                 << ", skipping activation.";
+      LOGD("Script already loaded: {}, skipping activation.", kScriptName);
       return Ok();
     }
 
@@ -98,18 +97,17 @@ public:
 
     auto result = script->RpcCallSync("init", "");
     if (!result) {
-      LOG(ERROR) << "Failed to init SslDumper script: "
-                 << result.error().dump();
+      LOGE("Failed to init SslDumper script: {}", result.error().dump());
       return SdkFailure("Failed to init SslDumper script");
     }
 
     result = script->RpcCallSync("start", "");
     if (!result) {
-      LOG(ERROR) << "Failed to start SslDumper: " << result.error().dump();
+      LOGE("Failed to start SslDumper: {}", result.error().dump());
       return SdkFailure("Failed to start SslDumper");
     }
 
-    LOG(DEBUG) << "SslDumper activated, script loaded: " << kScriptName;
+    LOGD("SslDumper activated, script loaded: {}", kScriptName);
     return Ok();
   }
 
@@ -117,7 +115,7 @@ public:
     if (m_script != nullptr) {
       auto result = m_script->RpcCallSync("stop", "");
       if (!result) {
-        LOG(ERROR) << "Failed to stop SslDumper: " << result.error().dump();
+        LOGE("Failed to stop SslDumper: {}", result.error().dump());
         return SdkFailure("Failed to stop SslDumper");
       }
       m_session->RemoveScript(kScriptName);
@@ -127,7 +125,7 @@ public:
       m_file_writer.reset();
     }
 
-    LOG(DEBUG) << "SslDumper deactivated";
+    LOGD("SslDumper deactivated");
     return Ok();
   }
 
@@ -135,12 +133,12 @@ private:
   void OnSslDataSink(const frida::Script *script, const nlohmann::json &msg,
                      const uint8_t *data, size_t size) {
     if (UNLIKELY(script != m_script)) {
-      LOG(ERROR) << "Received SSL data for an unknown script: " << script;
+      LOGE("Received SSL data for an unknown script: {}", (void *)script);
       return;
     }
 
     if (data == nullptr || size == 0) {
-      LOG(WARNING) << "Received empty SSL data: " << msg.dump();
+      LOGW("Received empty SSL data: {}", msg.dump());
       return;
     }
 
@@ -149,9 +147,9 @@ private:
                          sizeof(size32));
 
     m_file_writer->Write(data, size);
-    LOG(DEBUG) << "(SslDumper) Wrote " << size
-               << " bytes of SSL data to file, total written: "
-               << m_file_writer->WrittenSize() << " bytes";
+    LOGD("(SslDumper) Wrote {} bytes of SSL data to file, total written: {} "
+         "bytes",
+         size, m_file_writer->WrittenSize());
   }
 
   frida::Session *m_session = nullptr;

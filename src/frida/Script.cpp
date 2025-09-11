@@ -30,11 +30,11 @@ namespace frida {
 Script::Script(std::string_view name, std::string_view source,
                FridaSession *session)
     : m_name(name), m_source(source), m_session(session) {
-  LOG(INFO) << "Creating script " << this;
+  LOGI("Creating script {}", (void *)this);
 }
 
 Script::~Script() {
-  LOG(INFO) << "Destroying script " << m_name << "@" << this;
+  LOGI("Destroying script {}@{}", m_name, (void *)this);
 
   if (m_loaded) {
     Unload();
@@ -42,7 +42,7 @@ Script::~Script() {
 }
 
 void Script::Load() {
-  LOG(INFO) << "Loading script " << m_name << "@" << this;
+  LOGI("Loading script {}@{}", m_name, (void *)this);
   GError *error{nullptr};
 
   {
@@ -58,7 +58,7 @@ void Script::Load() {
     char *source = const_cast<char *>(m_source.data());
     char *buffer = nullptr;
     if (LoadJavaRuntimeIfNeeded(m_source)) {
-      LOG(INFO) << "Loading Java runtime for script " << m_name;
+      LOGI("Loading Java runtime for script {}", m_name);
 
       size_t needed_size = kScriptSource.size() + m_source.size() + 5;
       buffer = new char[needed_size];
@@ -70,9 +70,9 @@ void Script::Load() {
                                                 nullptr, &error);
     delete[] buffer;
     if (m_script == nullptr || error != nullptr) {
-      LOG(ERROR) << "Failed to create script " << m_name << "@" << this;
+      LOGE("Failed to create script {}@{}", m_name, (void *)this);
       if (error != nullptr) {
-        LOG(ERROR) << "error: " << error->code << " -> " << error->message;
+        LOGE("error: {} -> {}", error->code, error->message);
       }
       exit(EXIT_FAILURE);
     }
@@ -80,18 +80,18 @@ void Script::Load() {
     // todo: fix compile error here
     // g_clear_object(options);
 
-    g_signal_connect(m_script, "message", G_CALLBACK(OnMessage), this);
+    g_signal_connect(m_script, "message", G_CALLBACK(OnMessage), (void *)this);
     m_loaded = true;
   }
 
   frida_script_load_sync(m_script, nullptr, &error);
   CHECK(error == nullptr);
 
-  LOG(DEBUG) << "Script loaded " << m_name << "@" << this;
+  LOGD("Script loaded {}@{}", m_name, (void *)this);
 }
 
 void Script::Unload() {
-  LOG(INFO) << "Unloading script " << m_name << "@" << this;
+  LOGI("Unloading script {}@{}", m_name, (void *)this);
 
   GError *error{nullptr};
   LOCK();
@@ -148,7 +148,7 @@ int Script::SendRpcCall(std::string_view method, std::string_view param_json) {
       .append("]");
 
   frida_script_post(m_script, message.c_str(), nullptr);
-  LOG(DEBUG) << "Sent RPC call " << message << " with ID " << call_id;
+  LOGD("Sent RPC call {} with ID {}", message, call_id);
 
   return call_id;
 }
@@ -177,19 +177,19 @@ static void WriteLogMessage(json &msg) {
   auto const &message = msg["payload"].get_ref<std::string &>();
   switch (EXPECT(level[0], 'i')) {
   case 'i':
-    LOG(INFO) << kClientMessagePrefix << message;
+    LOGI("{}{}", kClientMessagePrefix, message);
     return;
   case 'd':
-    LOG(DEBUG) << kClientMessagePrefix << message;
+    LOGD("{}{}", kClientMessagePrefix, message);
     return;
   case 'w':
-    LOG(WARNING) << kClientMessagePrefix << message;
+    LOGW("{}{}", kClientMessagePrefix, message);
     return;
   case 'e':
-    LOG(ERROR) << kClientMessagePrefix << message;
+    LOGE("{}{}", kClientMessagePrefix, message);
     return;
   default:
-    LOG(INFO) << "Unknown level " << level << " [0]=" << level[0];
+    LOGI("Unknown level {} [0]={}", level, level[0]);
   }
 }
 
@@ -217,7 +217,7 @@ bool Script::MaybeProcessSystemMessage(nlohmann::json &msg) {
         }
       }
     } else {
-      LOG(WARNING) << "Received send message without payload: " << msg.dump();
+      LOGW("Received send message without payload: {}", msg.dump());
       return false;
     }
   }
@@ -228,13 +228,13 @@ bool Script::MaybeProcessSystemMessage(nlohmann::json &msg) {
 void Script::OnRpcReturn(json &msg) {
   auto const &payload = msg["payload"];
   if (!payload.is_array() || payload.size() < 3) {
-    LOG(ERROR) << "Invalid RPC return message: " << msg.dump();
+    LOGE("Invalid RPC return message: {}", msg.dump());
     return;
   }
 
   const std::string &identifier = payload[0].get<std::string>();
   if (identifier != kRpcIdentifier) {
-    LOG(ERROR) << "Invalid RPC return identifier: " << identifier;
+    LOGE("Invalid RPC return identifier: {}", identifier);
     return;
   }
   int call_id = payload[1].get<int>();
@@ -242,7 +242,7 @@ void Script::OnRpcReturn(json &msg) {
 
   if (type == kRpcResultOk) {
     if (payload.size() < 4) {
-      LOG(ERROR) << "Invalid RPC return message: " << msg.dump();
+      LOGE("Invalid RPC return message: {}", msg.dump());
       return;
     }
     json result = payload[3];
@@ -254,7 +254,7 @@ void Script::OnRpcReturn(json &msg) {
     m_rpc_call_cond_var.notify_all();
   } else if (type == kRpcResultError) {
     if (payload.size() < 4) {
-      LOG(ERROR) << "Invalid RPC error message: " << msg.dump();
+      LOGE("Invalid RPC error message: {}", msg.dump());
       return;
     }
     json error = payload[3];
@@ -265,7 +265,7 @@ void Script::OnRpcReturn(json &msg) {
 
     m_rpc_call_cond_var.notify_all();
   } else {
-    LOG(ERROR) << "Unknown RPC return type: " << type;
+    LOGE("Unknown RPC return type: {}", type);
   }
 }
 
@@ -273,7 +273,7 @@ void Script::ProcessMessage(const FridaScript *script, std::string_view message,
                             GBytes *data) {
   CHECK(script == m_script);
 
-  // LOG(DEBUG) << "Processing message: " << message;
+  LOGD("Processing message: {}", message);
   auto msg_obj = json::parse(message);
   if (MaybeProcessSystemMessage(msg_obj)) {
     return;

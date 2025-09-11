@@ -23,7 +23,7 @@ public:
     GError *error = nullptr;
     frida_device_enable_spawn_gating_sync(m_device, nullptr, &error);
     if (error != nullptr) {
-      LOG(ERROR) << "Failed to enable spawn gating: " << error->message;
+      LOGE("Failed to enable spawn gating: {}", error->message);
     }
     m_enabled = (error == nullptr);
   }
@@ -33,7 +33,7 @@ public:
       GError *error = nullptr;
       frida_device_disable_spawn_gating_sync(m_device, nullptr, &error);
       if (error != nullptr) {
-        LOG(ERROR) << "Failed to disable spawn gating: " << error->message;
+        LOGE("Failed to disable spawn gating: {}", error->message);
       }
     }
   }
@@ -75,24 +75,20 @@ void KillAppIfRunning(std::string_view app_name) {
     return;
   }
 
-  LOG(INFO) << "App " << app_name
-            << " is running, attempting to kill it with PID: "
-            << proc_info->pid;
+  LOGI("App {} is running, attempting to kill it with PID: {}", app_name,
+       proc_info->pid);
 
   int ret = kill(proc_info->pid, SIGTERM);
   if (ret != 0) {
-    LOG(ERROR) << "Failed to kill app " << app_name
-               << " with PID: " << proc_info->pid
-               << ", error: " << strerror(errno);
+    LOGE("Failed to kill app {} with PID: {}", app_name, proc_info->pid);
   } else {
-    LOG(INFO) << "Successfully killed app " << app_name
-              << " with PID: " << proc_info->pid;
+    LOGI("Successfully killed app {} with PID: {}", app_name, proc_info->pid);
   }
 }
 } // namespace
 
 Device::Device() {
-  LOG(INFO) << "Creating frida device " << this;
+  LOGI("Creating frida device {}", (void *)this);
 
   m_manager = frida_device_manager_new();
   CHECK(m_manager != nullptr);
@@ -105,8 +101,7 @@ Device::Device() {
   const auto n_devices = frida_device_list_size(devices);
   for (int i = 0; i < n_devices; ++i) {
     auto *device = frida_device_list_get(devices, i);
-    LOG(DEBUG) << "Found device " << frida_device_get_name(device)
-               << ", type: " << frida_device_get_dtype(device);
+    LOGD("Found device {}", (void *)frida_device_get_name(device));
 
     if (frida_device_get_dtype(device) == FRIDA_DEVICE_TYPE_LOCAL) {
       m_device = g_object_ref(device);
@@ -117,10 +112,10 @@ Device::Device() {
   }
 
   if (m_device == nullptr) {
-    LOG(ERROR) << "No valid device found, current device list:";
+    LOGE("No valid device found, current device list:");
     for (int i = 0; i < n_devices; ++i) {
       auto *device = frida_device_list_get(devices, i);
-      LOG(ERROR) << "Device " << frida_device_get_name(device);
+      LOGE("Device {}", frida_device_get_name(device));
     }
   }
 
@@ -128,7 +123,7 @@ Device::Device() {
 }
 
 Device::~Device() {
-  LOG(INFO) << "Destroying frida device " << m_name << "@" << this;
+  LOGI("Destroying frida device {}@{}", m_name, (void *)this);
 
   if (m_device != nullptr) {
     frida_unref(m_device);
@@ -157,7 +152,7 @@ Status Device::BuildSessionsFromConfig(const nlohmann::json &config) {
 }
 
 Status Device::Resume() {
-  LOG(INFO) << "Resuming frida device " << m_name << "@" << this;
+  LOGI("Resuming frida device {}@{}", m_name, (void *)this);
 
   CHECK(m_device != nullptr);
 
@@ -177,13 +172,13 @@ Status Device::Resume() {
 }
 
 Status Device::Attach(const utils::ProcessInfo &proc_info) {
-  LOG(INFO) << "Attaching frida device " << m_name << "@" << this
-            << " targeting " << proc_info.cmd_line;
+  LOGI("Attaching frida device {}@{} targeting {}", m_name, (void *)this,
+       proc_info.cmd_line);
 
   CHECK(m_device != nullptr);
   if (m_sessions.Contains(proc_info) && m_sessions.At(proc_info) != nullptr) {
-    LOG(INFO) << "Already attached to process " << proc_info.cmd_line << "("
-              << proc_info.pid << ")";
+    LOGI("Already attached to process {}({})", proc_info.cmd_line,
+         proc_info.pid);
     return InvalidOperation("Multiple attachments");
   }
 
@@ -192,7 +187,7 @@ Status Device::Attach(const utils::ProcessInfo &proc_info) {
   auto *session = frida_device_attach_sync(m_device, proc_info.pid, nullptr,
                                            nullptr, &error);
   if (error != nullptr) {
-    LOG(ERROR) << "Error attaching frida device: " << error->message;
+    LOGE("Error attaching frida device: {}", error->message);
     frida_unref(session);
 
     return SdkFailure("frida attach api failed");
@@ -205,9 +200,8 @@ Status Device::Attach(const utils::ProcessInfo &proc_info) {
 
 // todo: is this resume-able?
 Status Device::Detach(const utils::ProcessInfo &proc_info) {
-  LOG(INFO) << "Detaching frida device " << m_name << "@" << this
-            << " targeting " << proc_info.cmd_line << "(" << proc_info.pid
-            << ")";
+  LOGI("Detaching frida device {}@{} targeting {}({})", m_name, (void *)this,
+       proc_info.cmd_line, proc_info.pid);
 
   CHECK(m_device != nullptr);
   CHECK(m_sessions.Contains(proc_info));
@@ -218,7 +212,7 @@ Status Device::Detach(const utils::ProcessInfo &proc_info) {
 
 Status Device::SpawnAppAndAttach(std::string_view exec_name,
                                  const std::vector<std::string> &args) {
-  LOG(INFO) << "Spawning and attaching to app " << exec_name;
+  LOGI("Spawning and attaching to app {}", exec_name);
 
   CHECK(m_device != nullptr);
 
@@ -237,21 +231,21 @@ Status Device::SpawnAppAndAttach(std::string_view exec_name,
 
   frida_unref(options);
 
-  LOG(INFO) << "Spawned app with PID: " << spawn_pid;
+  LOGI("Spawned app with PID: {}", spawn_pid);
   if (error != nullptr) {
-    LOG(ERROR) << "Error spawning app: " << error->message;
+    LOGE("Error spawning app: {}", error->message);
     g_error_free(error);
     return SdkFailure("frida spawn api failed");
   }
   if (spawn_pid <= 0) {
-    LOG(ERROR) << "Invalid PID returned from frida spawn: " << spawn_pid;
+    LOGE("Invalid PID returned from frida spawn: {}", spawn_pid);
     return SdkFailure("frida spawn returned invalid PID");
   }
 
   m_pending_spawns.push_back(static_cast<pid_t>(spawn_pid));
   auto proc_info = utils::FindProcessByPid(static_cast<pid_t>(spawn_pid));
   if (!proc_info.has_value()) {
-    LOG(ERROR) << "Failed to find process by PID: " << spawn_pid;
+    LOGE("Failed to find process by PID: {}", spawn_pid);
     return NotFound("Process not found by PID");
   }
   return Attach(*proc_info);
@@ -259,14 +253,14 @@ Status Device::SpawnAppAndAttach(std::string_view exec_name,
 
 Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
   // Assuming the am_command_args is space separated arguments
-  LOG(INFO) << "Launching app with am command: " << am_command_args;
+  LOGI("Launching app with am command: {}", am_command_args);
 
   CHECK(m_device != nullptr);
   GError *error = nullptr;
 
   auto args = utils::SplitString(am_command_args, " ");
   if (args.empty()) {
-    LOG(ERROR) << "No arguments provided for am command";
+    LOGE("No arguments provided for am command");
     return BadArgument("No arguments provided for am command");
   }
 
@@ -276,36 +270,35 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
 
   Status status = am_process.Spawn("sh", {"-c", std::string(am_command_args)});
   if (!status.Ok()) {
-    LOG(ERROR) << "Failed to spawn am command: " << status.Message();
+    LOGE("Failed to spawn am command: {}", status.Message());
     return status;
   }
 
   auto result = am_process.Wait(10000);
   if (result.timed_out) {
-    LOG(ERROR) << "AM command timed out";
+    LOGE("AM command timed out");
     return InvalidOperation("AM command timed out");
   }
   if (result.exit_status != 0) {
-    LOG(ERROR) << "AM command failed with exit status: " << result.exit_status
-               << ", stderr: " << result.stderr;
+    LOGE("AM command failed with exit status: {}, stderr: {}",
+         result.exit_status, result.stderr);
     return SdkFailure("AM command failed: " + result.stderr);
   }
 
   constexpr int64_t kWaitForAppLaunchTimeoutMs = 10000;
   auto package_name = ExtractAppNameFromAmCommand(am_command_args);
   if (!package_name.has_value()) {
-    LOG(ERROR) << "Failed to extract package name from AM command: "
-               << am_command_args;
+    LOGE("Failed to extract package name from AM command: {}", am_command_args);
     return BadArgument("Failed to extract package name from AM command");
   }
-  LOG(INFO) << "Extracted package name: " << *package_name;
+  LOGI("Extracted package name: {}", *package_name);
 
   int64_t start_time = GetNowMs();
   while (true) {
     FridaSpawnList *spawned_apps =
         frida_device_enumerate_pending_spawn_sync(m_device, nullptr, &error);
     if (error != nullptr) {
-      LOG(ERROR) << "Error enumerating pending spawns: " << error->message;
+      LOGE("Error enumerating pending spawns: {}", error->message);
       return SdkFailure("frida enumerate pending spawn failed");
     }
 
@@ -315,18 +308,17 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
       auto const *identifier = frida_spawn_get_identifier(spawn);
       auto pid = frida_spawn_get_pid(spawn);
 
-      LOG(DEBUG) << "Found pending spawn: " << identifier << "(PID: " << pid
-                 << ")";
+      LOGD("Found pending spawn: {}(PID: {})", identifier, pid);
       if (identifier == *package_name) {
         found = true;
-        LOG(INFO) << "Found pending spawn with PID: " << pid;
+        LOGI("Found pending spawn with PID: {}", pid);
         frida_unref(spawned_apps);
         frida_unref(spawn);
 
         m_pending_spawns.push_back(static_cast<pid_t>(pid));
         auto proc_info = utils::FindProcessByPid(static_cast<pid_t>(pid));
         if (!proc_info.has_value()) {
-          LOG(ERROR) << "Failed to find process by PID: " << pid;
+          LOGE("Failed to find process by PID: {}", pid);
           return NotFound("Process not found by PID");
         }
         return Attach(*proc_info);
@@ -334,8 +326,7 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
 
       frida_device_resume_sync(m_device, pid, nullptr, &error);
       if (error != nullptr) {
-        LOG(ERROR) << "Error resuming spawn with PID " << pid << ": "
-                   << error->message;
+        LOGE("Error resuming spawn with PID {}: {}", pid, error->message);
         return SdkFailure("frida resume spawn failed");
       }
 
@@ -351,7 +342,7 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
     }
   }
 #ifdef EXP_DEBUG
-  LOG(INFO) << "AM command executed successfully, stdout: " << result.stdout;
+  LOGI("AM command executed successfully, stdout: {}", result.stdout);
 #endif
 
   return Ok();
@@ -385,7 +376,7 @@ bool Device::EnumerateSessions(const EnumerateSessionCallback &callback) const {
 Status Device::BuildOneSessionFromConfig(const nlohmann::json &session_config) {
   Status status = AttachToAppFromConfig(session_config);
   if (!status.Ok()) {
-    LOG(ERROR) << "Failed to attach to app from config: " << status.Message();
+    LOGE("Failed to attach to app from config: {}", status.Message());
     return status;
   }
 

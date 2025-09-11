@@ -51,25 +51,25 @@ Subprocess::Subprocess(LogCallback logCallback)
     : m_pid(-1), m_is_running(false), m_stdout_pipe{-1, -1},
       m_stderr_pipe{-1, -1}, m_log_callback(std::move(logCallback)),
       m_exit_status(-1) {
-  LOG(DEBUG) << "Subprocess instance created @ " << this;
+  LOGD("Subprocess instance created @ {}", (void *)this);
 }
 
 Subprocess::~Subprocess() {
   if (m_is_running) {
-    LOG(DEBUG) << "Destructor called with running process, terminating...";
+    LOGD("Destructor called with running process, terminating...");
     Terminate(SIGKILL);
     Wait(1000);
   }
 
   ClosePipes();
-  LOG(DEBUG) << "Subprocess instance destroyed @ " << this;
+  LOGD("Subprocess instance destroyed @ {}", (void *)this);
 }
 
 Status Subprocess::Spawn(const std::string &command,
                          const std::vector<std::string> &args,
                          const std::vector<std::string> &env) {
   if (m_is_running) {
-    LOG(ERROR) << "Error: Cannot spawn - process already running";
+    LOGE("Error: Cannot spawn - process already running");
     return InvalidOperation("Repeated spawn attempt");
   }
 
@@ -78,13 +78,13 @@ Status Subprocess::Spawn(const std::string &command,
   m_exit_status = -1;
 
   if (!CreatePipes()) {
-    LOG(ERROR) << "Error: Failed to create pipes";
+    LOGE("Error: Failed to create pipes");
     return InvalidOperation("Failed to create pipes");
   }
 
   m_pid = fork();
   if (m_pid == -1) {
-    LOG(ERROR) << "Error: fork() failed - " << strerror(errno);
+    LOGE("Error: fork() failed - {}", strerror(errno));
     ClosePipes();
     return InvalidState("Fork failed: " + std::string(strerror(errno)));
   }
@@ -106,7 +106,7 @@ Status Subprocess::Spawn(const std::string &command,
 
   std::ostringstream oss;
   oss << "Spawned process with PID " << m_pid << " - Command: " << command;
-  LOG(DEBUG) << oss.str();
+  LOGD(oss.str());
 
   return Ok();
 }
@@ -116,7 +116,7 @@ Subprocess::Result Subprocess::Wait(int timeoutMs) {
       .exit_status = -1, .stdout = "", .stderr = "", .timed_out = false};
 
   if (!m_is_running) {
-    LOG(WARNING) << "Warning: Wait() called but process not running";
+    LOGW("Warning: Wait() called but process not running");
     result.exit_status = m_exit_status;
     result.stdout = m_stdout_buffer;
     result.stderr = m_stderr_buffer;
@@ -131,7 +131,7 @@ Subprocess::Result Subprocess::Wait(int timeoutMs) {
                          std::chrono::steady_clock::now() - start_time)
                          .count();
       if (elapsed >= timeoutMs) {
-        LOG(WARNING) << "Process timed out after " << timeoutMs << "ms";
+        LOGW("Process timed out after {}ms", timeoutMs);
         result.timed_out = true;
         Terminate(SIGTERM);
         break;
@@ -192,14 +192,14 @@ bool Subprocess::IsRunning() {
 
 bool Subprocess::Terminate(int signal) {
   if (!m_is_running) {
-    LOG(WARNING) << "Warning: Terminate() called but process not running";
+    LOGW("Warning: Terminate() called but process not running");
     return false;
   }
 
-  LOG(INFO) << "Sending signal " << signal << " to PID " << m_pid;
+  LOGI("Sending signal {} to PID {}", signal, m_pid);
 
   if (kill(m_pid, signal) == -1) {
-    LOG(ERROR) << "Error: Failed to send signal - " << strerror(errno);
+    LOGE("Error: Failed to send signal - {}", strerror(errno));
     return false;
   }
 
@@ -233,12 +233,12 @@ void Subprocess::ClosePipes() {
 
 bool Subprocess::CreatePipes() {
   if (pipe(m_stdout_pipe.data()) == -1) {
-    LOG(ERROR) << "Error: Failed to create stdout pipe - " << strerror(errno);
+    LOGE("Error: Failed to create stdout pipe - {}", strerror(errno));
     return false;
   }
 
   if (pipe(m_stderr_pipe.data()) == -1) {
-    LOG(ERROR) << "Error: Failed to create stderr pipe - " << strerror(errno);
+    LOGE("Error: Failed to create stderr pipe - {}", strerror(errno));
     close(m_stdout_pipe[0]);
     close(m_stdout_pipe[1]);
     return false;
@@ -293,10 +293,10 @@ bool Subprocess::CheckRunningAndUpdateStatus() {
 
     if (WIFEXITED(status)) {
       m_exit_status = WEXITSTATUS(status);
-      LOG(INFO) << "Process exited with status " << m_exit_status;
+      LOGI("Process exited with status {}", m_exit_status);
     } else if (WIFSIGNALED(status)) {
       m_exit_status = -WTERMSIG(status);
-      LOG(INFO) << "Process terminated by signal " << WTERMSIG(status);
+      LOGI("Process terminated by signal {}", WTERMSIG(status));
     }
 
     ReadFromPipe(m_stdout_pipe[0], m_stdout_buffer);

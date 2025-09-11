@@ -45,11 +45,11 @@ void TestSimpleExecuteAndTableCreation() {
 
   bool success = db.Execute(create_table_sql);
   CHECK(success);
-  LOG(INFO) << "Table 'users' created successfully.";
+  LOGI("Table 'users' created successfully.");
 
   bool failure = db.Execute("CREATE GARBAGE;");
   CHECK(!failure);
-  LOG(INFO) << "Correctly failed to execute invalid SQL.";
+  LOGI("Correctly failed to execute invalid SQL.");
 }
 
 void TestInsertAndSelect() {
@@ -74,7 +74,7 @@ void TestInsertAndSelect() {
 
   CHECK(insert_stmt.Execute());
   CHECK(db.GetLastInsertRowId() == 1);
-  LOG(INFO) << "Inserted John Doe, row id: " << db.GetLastInsertRowId();
+  LOGI("Inserted John Doe, row id: {}", db.GetLastInsertRowId());
 
   insert_stmt.Reset();
   CHECK(insert_stmt.Bind(1, "Jane Smith"));
@@ -83,7 +83,7 @@ void TestInsertAndSelect() {
   CHECK(insert_stmt.BindNull(4)); // photo is NULL
   CHECK(insert_stmt.Execute());
   CHECK(db.GetLastInsertRowId() == 2);
-  LOG(INFO) << "Inserted Jane Smith, row id: " << db.GetLastInsertRowId();
+  LOGI("Inserted Jane Smith, row id: {}", db.GetLastInsertRowId());
 
   auto select_stmt_opt = db.Prepare(
       "SELECT id, name, age, height, photo FROM users WHERE id = ?;");
@@ -99,7 +99,7 @@ void TestInsertAndSelect() {
   CHECK(std::abs(std::get<double>(select_stmt.GetColumn(3)) - height) < 0.001);
   CHECK(std::get<std::vector<uint8_t>>(select_stmt.GetColumn(4)) == photo_data);
 
-  LOG(INFO) << "Verified John Doe's data.";
+  LOGI("Verified John Doe's data.");
   CHECK(!select_stmt.Step());
 
   select_stmt.Reset();
@@ -112,7 +112,7 @@ void TestInsertAndSelect() {
   CHECK(std::abs(std::get<double>(select_stmt.GetColumn(3)) - 165.2) < 0.001);
   CHECK(std::holds_alternative<std::monostate>(
       select_stmt.GetColumn(4))); // photo is NULL
-  LOG(INFO) << "Verified Jane Smith's data (with NULLs).";
+  LOGI("Verified Jane Smith's data (with NULLs).");
 }
 
 void TestTransactions() {
@@ -129,7 +129,7 @@ void TestTransactions() {
   auto &stmt1 = stmt1_opt.value();
   CHECK(stmt1.Step());
   CHECK(std::get<int64_t>(stmt1.GetColumn(0)) == 1);
-  LOG(INFO) << "Commit successful.";
+  LOGI("Commit successful.");
 
   CHECK(db.BeginTransaction());
   CHECK(db.Execute("INSERT INTO items (name) VALUES ('rolled-back item');"));
@@ -141,7 +141,7 @@ void TestTransactions() {
   auto &stmt2 = stmt2_opt.value();
   CHECK(stmt2.Step());
   CHECK(std::get<int64_t>(stmt2.GetColumn(0)) == 0);
-  LOG(INFO) << "Rollback successful.";
+  LOGI("Rollback successful.");
 }
 
 void TestErrorHandling() {
@@ -149,7 +149,7 @@ void TestErrorHandling() {
 
   auto stmt_opt = db.Prepare("SELECT * FROM non_existent_table;");
   CHECK(!stmt_opt.has_value());
-  LOG(INFO) << "Correctly handled failed prepare for non-existent table.";
+  LOGE("Correctly handled failed prepare for non-existent table.");
 
   db.Execute("CREATE TABLE test (id INT);");
   auto insert_stmt_opt = db.Prepare("INSERT INTO test (id) VALUES (?);");
@@ -157,7 +157,7 @@ void TestErrorHandling() {
 
   auto val = insert_stmt_opt->GetColumn(0);
   CHECK(std::holds_alternative<std::monostate>(val));
-  LOG(INFO) << "Correctly handled GetColumn before Step.";
+  LOGE("Correctly handled GetColumn before Step.");
 }
 } // namespace
 

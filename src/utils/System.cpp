@@ -38,12 +38,11 @@ std::string ReadFileToBuffer(std::string_view file_path, bool is_virtual_file) {
   if (fd == -1) {
     perror("Opening file failed");
     if (errno == ENOENT) {
-      LOG(ERROR) << "File " << file_path << " does not exist";
+      LOGE("File {} does not exist", file_path);
     } else if (errno == EACCES) {
-      LOG(ERROR) << "File " << file_path << " access denied";
+      LOGE("File {} access denied", file_path);
     } else {
-      LOG(ERROR) << "Opening " << file_path
-                 << " failed, error = " << strerror(errno);
+      LOGE("Opening {} failed, error = {}", file_path, strerror(errno));
     }
     exit(1);
   }
@@ -63,9 +62,8 @@ std::string ReadFileToBuffer(std::string_view file_path, bool is_virtual_file) {
     return {};
   }
   if (file_size < 0) {
-    LOG(ERROR) << "Reading file " << file_path
-               << " failed, error = " << strerror(errno)
-               << " file size= " << file_size;
+    LOGE("Reading {} failed, error = {}, file size= {}", file_path,
+         strerror(errno), file_size);
     return {};
   }
 

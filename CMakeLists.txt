@@ -20,7 +20,14 @@ include(${LOCAL_CMAKE_MODULE_PATH}/LocalFridaFinder.cmake)
 
 add_library(COMMON_SETTINGS INTERFACE)
 target_include_directories(COMMON_SETTINGS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror -g)
 
+if (ENABLE_DEBUG)
+    target_compile_definitions(COMMON_SETTINGS INTERFACE EXP_DEBUG)
+    target_compile_definitions(COMMON_SETTINGS INTERFACE SPDLOG_ACTIVE_LEVEL=1) # debug
+else ()
+    target_compile_definitions(COMMON_SETTINGS INTERFACE SPDLOG_ACTIVE_LEVEL=2) # info
+endif ()
 
 if (TARGET_ANDROID)
     target_compile_definitions(COMMON_SETTINGS INTERFACE TARGET_ANDROID)
@@ -29,11 +36,6 @@ if (TARGET_ANDROID)
         $<$<COMPILE_LANG_AND_ID:CXX,Clang>:-Wno-unused-command-line-argument>
     )
     target_link_libraries(COMMON_SETTINGS INTERFACE log)
-endif ()
-
-if (ENABLE_DEBUG)
-    target_compile_definitions(COMMON_SETTINGS INTERFACE EXP_DEBUG)
-    target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror -g)
 endif ()
 
 add_subdirectory(third_party)
