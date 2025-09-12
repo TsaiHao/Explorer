@@ -2,21 +2,25 @@
 // Created by Hao, Zaijun on 2025/4/27.
 //
 #include "Application.h"
-
 // todo: move this header to frida/
 #include "frida/Device.h"
 #include "nlohmann/json.hpp"
 #include "utils/Log.h"
 #include "utils/Status.h"
 #include "utils/System.h"
-
-#include <cstdlib>
-using nlohmann::json;
+#include "version.h"
 
 #include "spdlog/sinks/android_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
+#include <iostream>
+#include <cstdlib>
+#include <string>
+using nlohmann::json;
+
 constexpr std::string_view kSessionsKey = "sessions";
+constexpr std::string_view kConfigFilePathAbsolute =
+    "/data/local/tmp/config.json";
 
 namespace {
 void AndroidEnvCheck() {
@@ -63,12 +67,14 @@ void InitLogger() {
 
 class Application::Impl {
 public:
-  explicit Impl(std::string_view config);
+  explicit Impl(const std::vector<std::string_view>& args);
   ~Impl();
 
   void Run() const;
 
 private:
+  void HandleArgs(const std::vector<std::string_view>& args);
+
   struct LoopDeleter {
     void operator()(GMainLoop *loop) const noexcept { g_main_loop_unref(loop); }
   };
@@ -79,11 +85,22 @@ private:
   std::unique_ptr<frida::Device> m_device;
 };
 
-Application::Impl::Impl(std::string_view config) {
+Application::Impl::Impl(const std::vector<std::string_view>& args) {
   InitLogger();
 
   frida_init();
   AndroidEnvCheck();
+
+  HandleArgs(args);
+
+  std::string config;
+
+  if (utils::FileExists(kConfigFilePathAbsolute)) {
+    config = utils::ReadFileToBuffer(kConfigFilePathAbsolute);
+  } else {
+    LOGE("Config file not found in location: {}", kConfigFilePathAbsolute);
+    exit(1);
+  }
 
   m_loop =
       std::unique_ptr<GMainLoop, LoopDeleter>(g_main_loop_new(nullptr, TRUE));
@@ -125,9 +142,32 @@ void Application::Impl::Run() const {
   LOGI("Application main loop stopped running");
 }
 
+void Application::Impl::HandleArgs(const std::vector<std::string_view>& args) {
+  constexpr std::string_view kHelpOption = "-help";
+  constexpr std::string_view kVersionOption = "-version";
+
+  for (int i = 1; i < static_cast<int>(args.size()); ++i) {
+    const auto &arg = args[i];
+
+    if (arg == kHelpOption) {
+      std::cout << "Usage: explorer [options]\n"
+                   "Options:\n"
+                   "  --help       Show this help message\n"
+                   "  --version    Show version information\n";
+      exit(0);
+    } else if (arg == kVersionOption) {
+      std::cout << "Explorer version " << VERSION_STRING << "\n";
+      exit(0);
+    } else {
+      std::cerr << "Unknown argument: " << arg << "\n";
+      exit(1);
+    }
+  }
+}
+
 Application::Application(
-    std::string_view config) // NOLINT(*-unnecessary-value-param)
-    : m_impl(std::make_unique<Impl>(config)) {}
+    const std::vector<std::string_view>& args)
+    : m_impl(std::make_unique<Impl>(args)) {}
 
 Application::~Application() { LOGI("Destroying Application {}", (void *)this); }
 

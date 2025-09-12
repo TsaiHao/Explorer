@@ -1,11 +1,12 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <string>
 
 class Application {
 public:
-  explicit Application(std::string_view config);
+  explicit Application(const std::vector<std::string_view>& args);
   ~Application();
 
   void Run() const;

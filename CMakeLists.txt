@@ -1,6 +1,28 @@
 cmake_minimum_required(VERSION 3.20)
 project(explorer LANGUAGES CXX C)
 
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
+
+# Get git commit hash
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        OUTPUT_VARIABLE VERSION_PATCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+else()
+    set(VERSION_PATCH "unknown")
+endif()
+
+configure_file(
+    "${PROJECT_SOURCE_DIR}/cmake/version.h.in"
+    "${PROJECT_BINARY_DIR}/generated/version.h"
+    @ONLY
+)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
@@ -19,7 +41,10 @@ include(${LOCAL_CMAKE_MODULE_PATH}/EmbedJs.cmake)
 include(${LOCAL_CMAKE_MODULE_PATH}/LocalFridaFinder.cmake)
 
 add_library(COMMON_SETTINGS INTERFACE)
-target_include_directories(COMMON_SETTINGS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(COMMON_SETTINGS INTERFACE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${PROJECT_BINARY_DIR}/generated
+)
 target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror -g)
 
 if (ENABLE_DEBUG)
