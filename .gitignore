@@ -9,6 +9,7 @@
 /third_party/frida
 /third_party/sqlite
 /third_party/spdlog
+/third_party/libcurl/curl
 
 /compile_commands.json
 /debug.js

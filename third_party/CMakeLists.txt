@@ -39,6 +39,7 @@ else()
     endif()
 endif()
 
+add_subdirectory(libcurl)
 add_subdirectory(sqlite)
 
 target_include_directories(DEPS INTERFACE ${CMAKE_CURRENT_LIST_DIR})

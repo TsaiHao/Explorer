@@ -7,6 +7,7 @@ readonly BASE_DEPS_DIR="third_party/frida"
 readonly NDK_PATH='/Users/zaijun/Library/Android/sdk/ndk/29.0.13113456'
 readonly SQLITE_VERSION='3500100'
 readonly SPDLOG_VERSION='1.15.3'
+readonly LIBCURL_VERSION='8.16.0'
 
 usage() {
   echo "Usage: $0"
@@ -102,6 +103,11 @@ download_and_extract_frida() {
 }
 
 install_sqlite_source() {
+  if [ -f "third_party/sqlite/src/sqlite3.c" ] && [ -f "third_party/sqlite/include/sqlite3.h" ]; then
+    echo "SQLite source code already exists. Skipping download and extraction."
+    return
+  fi
+
   local sqlite_file_name="sqlite-amalgamation-${SQLITE_VERSION}"
   local sqlite_zip_name="${sqlite_file_name}.zip"
   local sqlite_url="https://sqlite.org/2025/${sqlite_zip_name}"
@@ -224,12 +230,48 @@ install_spdlog() {
   echo "--- spdlog Dependencies Setup Complete ---"
 }
 
+install_libcurl() {
+  if [ -d "third_party/libcurl/curl" ] && [ -f "third_party/libcurl/curl/configure" ]; then
+    echo "libcurl source code already exists. Skipping download and extraction."
+    return
+  fi
+  local libcurl_archive_name="curl-${LIBCURL_VERSION}.tar.gz"
+  local libcurl_url="https://curl.se/download/${libcurl_archive_name}"
+  local libcurl_dir="third_party/libcurl"
+  local temp_extract_dir="libcurl_temp_extract_dir"
+
+  echo "Creating temporary directory for libcurl extraction: ${temp_extract_dir}"
+  rm -rf "${temp_extract_dir}"
+  mkdir -p "${temp_extract_dir}"
+
+  echo "Downloading libcurl source code from ${libcurl_url}..."
+  curl -L --fail --output "${temp_extract_dir}/${libcurl_archive_name}" "${libcurl_url}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to download libcurl source code."
+    exit 1
+  fi
+
+  tar -xzf "${temp_extract_dir}/${libcurl_archive_name}" -C "${temp_extract_dir}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to extract libcurl source code."
+    rm -rf "${temp_extract_dir}"
+    exit 1
+  fi
+
+  mv "${temp_extract_dir}/curl-${LIBCURL_VERSION}" "${libcurl_dir}"/curl
+
+  echo "libcurl source code installation complete."
+  rm -rf "${temp_extract_dir}"
+}
+
 main() {
   download_and_extract_frida
 
   install_sqlite_source
   
   install_spdlog
+
+  install_libcurl
 }
 
 main "$@"

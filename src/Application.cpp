@@ -13,8 +13,8 @@
 #include "spdlog/sinks/android_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
-#include <iostream>
 #include <cstdlib>
+#include <iostream>
 #include <string>
 using nlohmann::json;
 
@@ -36,44 +36,46 @@ void AndroidEnvCheck() {
 }
 
 void InitLogger() {
-    std::vector<spdlog::sink_ptr> sinks;
-    
-    auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    sinks.push_back(stdout_sink);
-    
-    auto android_sink = std::make_shared<spdlog::sinks::android_sink_mt>("Explorer", true);
-    sinks.push_back(android_sink);
-    
-    std::string format_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%P:%t] [%l] %v";
-    
-    for (auto& sink : sinks) {
-        sink->set_pattern(format_pattern);
-    }
-    
-    auto logger = std::make_shared<spdlog::logger>("default", sinks.begin(), sinks.end());
-    
+  std::vector<spdlog::sink_ptr> sinks;
+
+  auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+  sinks.push_back(stdout_sink);
+
+  auto android_sink =
+      std::make_shared<spdlog::sinks::android_sink_mt>("Explorer", true);
+  sinks.push_back(android_sink);
+
+  std::string format_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%P:%t] [%l] %v";
+
+  for (auto &sink : sinks) {
+    sink->set_pattern(format_pattern);
+  }
+
+  auto logger =
+      std::make_shared<spdlog::logger>("default", sinks.begin(), sinks.end());
+
 #ifdef EXP_DEBUG
-    logger->set_level(spdlog::level::trace);
+  logger->set_level(spdlog::level::trace);
 #else
-    logger->set_level(spdlog::level::info);
+  logger->set_level(spdlog::level::info);
 #endif
 
-    logger->flush_on(spdlog::level::info);
-    
-    spdlog::set_default_logger(logger);
-    spdlog::flush_every(std::chrono::seconds(1));
+  logger->flush_on(spdlog::level::info);
+
+  spdlog::set_default_logger(logger);
+  spdlog::flush_every(std::chrono::seconds(1));
 }
 } // namespace
 
 class Application::Impl {
 public:
-  explicit Impl(const std::vector<std::string_view>& args);
+  explicit Impl(const std::vector<std::string_view> &args);
   ~Impl();
 
   void Run() const;
 
 private:
-  void HandleArgs(const std::vector<std::string_view>& args);
+  void HandleArgs(const std::vector<std::string_view> &args);
 
   struct LoopDeleter {
     void operator()(GMainLoop *loop) const noexcept { g_main_loop_unref(loop); }
@@ -85,7 +87,7 @@ private:
   std::unique_ptr<frida::Device> m_device;
 };
 
-Application::Impl::Impl(const std::vector<std::string_view>& args) {
+Application::Impl::Impl(const std::vector<std::string_view> &args) {
   InitLogger();
 
   frida_init();
@@ -142,7 +144,7 @@ void Application::Impl::Run() const {
   LOGI("Application main loop stopped running");
 }
 
-void Application::Impl::HandleArgs(const std::vector<std::string_view>& args) {
+void Application::Impl::HandleArgs(const std::vector<std::string_view> &args) {
   constexpr std::string_view kHelpOption = "-help";
   constexpr std::string_view kVersionOption = "-version";
 
@@ -165,8 +167,7 @@ void Application::Impl::HandleArgs(const std::vector<std::string_view>& args) {
   }
 }
 
-Application::Application(
-    const std::vector<std::string_view>& args)
+Application::Application(const std::vector<std::string_view> &args)
     : m_impl(std::make_unique<Impl>(args)) {}
 
 Application::~Application() { LOGI("Destroying Application {}", (void *)this); }

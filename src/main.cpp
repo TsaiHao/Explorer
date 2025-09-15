@@ -8,10 +8,7 @@
 #include "utils/Log.h"
 #include "utils/System.h"
 
-
-
 int main(int argc, char *argv[]) {
-
 
   const Application app({argv, argv + argc});
 
