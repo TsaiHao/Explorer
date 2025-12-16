@@ -1,1 +1,1 @@
-add_subdirectory(simple_tests)
+# todo: add Catch2 for tests

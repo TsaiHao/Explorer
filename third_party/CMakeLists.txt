@@ -39,7 +39,14 @@ else()
     endif()
 endif()
 
-add_subdirectory(libcurl)
-add_subdirectory(sqlite)
+if (ENABLE_NETWORKING)
+    add_subdirectory(libcurl)
+    target_compile_definitions(DEPS INTERFACE ENABLE_NETWORKING)
+endif ()
+
+if (ENABLE_SQLITE)
+    add_subdirectory(sqlite)
+    target_compile_definitions(DEPS INTERFACE ENABLE_SQLITE)
+endif ()
 
 target_include_directories(DEPS INTERFACE ${CMAKE_CURRENT_LIST_DIR})

@@ -31,6 +31,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(TARGET_ANDROID ON CACHE BOOL "Compile for Android platform")
 set(ENABLE_DEBUG OFF CACHE BOOL "Enable debug logs")
 
+# todo: refactor install_dep.sh to adapt to cmake options
+option(ENABLE_NETWORKING "Enabel features that require networking/http. Enabling it would build libcurl" OFF)
+option(ENABLE_SQLITE "Enable features that require sqlite(data output). Enabling it would build sqlite3" OFF)
+
 if (TARGET_ANDROID)
     include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
 endif ()
