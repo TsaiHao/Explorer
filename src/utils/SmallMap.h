@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#define THROW
+#include "utils/Macros.h"
 
 template <typename KeyType, typename ValueType> class SmallMap {
   using PairType = std::pair<KeyType, ValueType>;
@@ -61,7 +61,7 @@ public:
     if (it != End()) { // Use non-const End()
       return it->second;
     }
-    std::unreachable();
+    UNREACHABLE();
   }
 
   template <typename K> const mapped_type &At(const K &KeyToFind) const {
@@ -69,7 +69,7 @@ public:
     if (it != CEnd()) { // Use const CEnd()
       return it->second;
     }
-    std::unreachable();
+    UNREACHABLE();
   }
 
   template <typename K> iterator Find(const K &KeyToFind) {

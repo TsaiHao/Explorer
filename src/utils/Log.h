@@ -12,6 +12,12 @@
 
 #define LOGE(...) SPDLOG_ERROR(__VA_ARGS__)
 
+#define LOGF(...)                                                              \
+  {                                                                            \
+    SPDLOG_CRITICAL(__VA_ARGS__);                                              \
+    std::terminate();                                                          \
+  }
+
 #define CHECK(condition, ...)                                                  \
   if (!(condition)) {                                                          \
     LOGE("Check failed: {}", #condition);                                      \

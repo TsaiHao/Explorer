@@ -9,7 +9,9 @@
 
 #include "FunctionTracer.js.h"
 #include "utils/System.h"
+
 #include <string>
+#include <string_view>
 
 using nlohmann::json;
 
@@ -20,10 +22,15 @@ constexpr std::string_view kAddressKey = "address";
 constexpr std::string_view kNameKey = "name";
 constexpr std::array<std::string_view, 1> kIgnoreSymbolPrefixes = {"__Thumb"};
 
+bool StartsWith(std::string_view str, std::string_view prefix) {
+  return str.size() >= prefix.size() &&
+         str.compare(0, prefix.size(), prefix) == 0;
+}
+
 bool ShouldIgnoreSymbol(std::string_view name) {
-  return std::ranges::any_of(kIgnoreSymbolPrefixes, [name](const auto &prefix) {
-    return name.starts_with(prefix);
-  });
+  return std::any_of(
+      kIgnoreSymbolPrefixes.begin(), kIgnoreSymbolPrefixes.end(),
+      [name](const auto &prefix) { return StartsWith(name, prefix); });
 }
 } // namespace
 
@@ -108,20 +115,22 @@ public:
     std::array<char, 128> params;
     snprintf(params.data(), params.size(), R"(["%s", "%s", "%s"])", ns.c_str(),
              cls.c_str(), method.c_str());
-    frida::RpcResult symbols =
+
+    frida::RpcResult result =
         m_script->RpcCallSync("resolveNativeSymbols", params.data());
-    if (!symbols) {
-      LOGE("Failed to resolve native symbols: {}", symbols.error().dump());
+    if (result.IsErr()) {
+      LOGE("Failed to resolve native symbols: {}", result.UnwrapErr().dump());
       return SdkFailure("Failed to resolve native symbols");
     }
-    if (symbols->empty()) {
-      LOGW("No native symbols resolved for {}", symbols->dump());
+
+    auto const &symbols = result.Unwrap();
+    if (symbols.empty()) {
+      LOGW("No native symbols resolved for {}", symbols.dump());
       return NotFound("No native symbols resolved");
     }
 
-    LOGD("Resolved {} native symbols: {}", symbols.value().size(),
-         symbols.value().dump());
-    ComposeTraceArguments(symbols.value(), config);
+    LOGD("Resolved {} native symbols: {}", symbols.size(), symbols.dump());
+    ComposeTraceArguments(symbols, config);
 
     return Ok();
   }
@@ -134,8 +143,8 @@ public:
 
     frida::RpcResult result = m_script->RpcCallSync("traceNativeFunctions",
                                                     m_trace_arguments.value());
-    if (!result) {
-      LOGE("Failed to activate native tracer: {}", result.error().dump());
+    if (result.IsErr()) {
+      LOGE("Failed to activate native tracer: {}", result.UnwrapErr().dump());
       return SdkFailure("Failed to activate native tracer");
     }
 
@@ -214,20 +223,23 @@ public:
     std::array<char, 128> params;
     snprintf(params.data(), params.size(), R"(["%s", "%s"])", cls.c_str(),
              method.c_str());
-    frida::RpcResult symbols =
+    frida::RpcResult result =
         m_script->RpcCallSync("resolveJavaSignature", params.data());
-    if (!symbols) {
-      LOGE("Failed to resolve java symbols: {}", symbols.error().dump());
+
+    if (result.IsErr()) {
+      LOGE("Failed to resolve java symbols: {}", result.UnwrapErr().dump());
       return SdkFailure("Failed to resolve java symbols");
     }
-    if (symbols->empty()) {
-      LOGW("No java symbols resolved for {}", symbols->dump());
+
+    auto const &symbols = result.Unwrap();
+    if (symbols.empty()) {
+      LOGW("No java symbols resolved for {}", symbols.dump());
       return NotFound("No java symbols resolved");
     }
 
-    LOGD("Resolved {} java symbols: {}", symbols.value().size(),
+    LOGD("Resolved {} java symbols: {}", symbols.size(),
          symbols.value().dump(1));
-    ComposeTraceArguments(symbols.value(), config);
+    ComposeTraceArguments(symbols, config);
 
     return Ok();
   }
@@ -240,8 +252,8 @@ public:
 
     frida::RpcResult result =
         m_script->RpcCallSync("traceJavaMethods", m_trace_arguments.value());
-    if (!result) {
-      LOGE("Failed to activate java tracer: {}", result.error().dump());
+    if (result.IsErr()) {
+      LOGE("Failed to activate java tracer: {}", result.UnwrapErr().dump());
       return SdkFailure("Failed to activate java tracer");
     }
 

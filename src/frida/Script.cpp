@@ -11,8 +11,6 @@
 #include <mutex>
 using nlohmann::json;
 
-#include <ranges>
-
 #define LOCK() const std::lock_guard<std::mutex> lock(m_mutex);
 
 constexpr std::string_view kClientMessagePrefix = "[Client]";
@@ -123,8 +121,8 @@ RpcResult Script::RpcCallSync(std::string_view method,
 
   int const call_id = SendRpcCall(method, param_json);
   if (call_id < 0) {
-    return std::unexpected(
-        nlohmann::json{{"error", "Failed to send RPC call"}});
+    nlohmann::json error{{"error", "Failed to send RPC call"}};
+    return ErrType<nlohmann::json>(error);
   }
 
   return WaitForRpcCallResult(call_id);
@@ -158,7 +156,7 @@ RpcResult Script::WaitForRpcCallResult(int call_id) {
   m_rpc_call_cond_var.wait(
       lock, [this, call_id] { return m_rpc_call_results.Contains(call_id); });
 
-  auto result = std::move(m_rpc_call_results[call_id]);
+  auto result = std::move(m_rpc_call_results.At(call_id));
   m_rpc_call_results.Erase(call_id);
 
   return result;
@@ -248,8 +246,9 @@ void Script::OnRpcReturn(json &msg) {
     json result = payload[3];
 
     std::lock_guard lock(m_rpc_call_mutex);
+
     CHECK(!m_rpc_call_results.Contains(call_id));
-    m_rpc_call_results[call_id] = std::move(result);
+    m_rpc_call_results.Emplace(call_id, OkType(std::move(result)));
 
     m_rpc_call_cond_var.notify_all();
   } else if (type == kRpcResultError) {
@@ -261,7 +260,7 @@ void Script::OnRpcReturn(json &msg) {
 
     std::lock_guard lock(m_rpc_call_mutex);
     CHECK(!m_rpc_call_results.Contains(call_id));
-    m_rpc_call_results[call_id] = std::unexpected(std::move(error));
+    m_rpc_call_results.Emplace(call_id, ErrType(std::move(error)));
 
     m_rpc_call_cond_var.notify_all();
   } else {
@@ -293,8 +292,8 @@ void Script::ProcessMessage(const FridaScript *script, std::string_view message,
   }
 
   LOCK();
-  for (const auto &callback : m_callbacks | std::views::values) {
-    callback(this, message, data_pointer, data_size);
+  for (auto &callback : m_callbacks) {
+    callback.second(this, message, data_pointer, data_size);
   }
 }
 } // namespace frida

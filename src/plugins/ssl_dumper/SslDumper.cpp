@@ -96,14 +96,14 @@ public:
     script->Load();
 
     auto result = script->RpcCallSync("init", "");
-    if (!result) {
-      LOGE("Failed to init SslDumper script: {}", result.error().dump());
+    if (result.IsErr()) {
+      LOGE("Failed to init SslDumper script: {}", result.UnwrapErr().dump());
       return SdkFailure("Failed to init SslDumper script");
     }
 
     result = script->RpcCallSync("start", "");
-    if (!result) {
-      LOGE("Failed to start SslDumper: {}", result.error().dump());
+    if (result.IsErr()) {
+      LOGE("Failed to start SslDumper: {}", result.UnwrapErr().dump());
       return SdkFailure("Failed to start SslDumper");
     }
 
@@ -114,10 +114,12 @@ public:
   Status Deactivate() {
     if (m_script != nullptr) {
       auto result = m_script->RpcCallSync("stop", "");
-      if (!result) {
-        LOGE("Failed to stop SslDumper: {}", result.error().dump());
+
+      if (result.IsErr()) {
+        LOGE("Failed to stop SslDumper: {}", result.UnwrapErr().dump());
         return SdkFailure("Failed to stop SslDumper");
       }
+
       m_session->RemoveScript(kScriptName);
       m_script = nullptr;
     }

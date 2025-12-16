@@ -3,23 +3,23 @@
 //
 #pragma once
 
-#include "FridaHelper.h"
-#include "nlohmann/json.hpp"
-#include "utils/Macros.h"
-#include "utils/SmallMap.h"
-
 #include <atomic>
 #include <condition_variable>
-#include <expected>
 #include <functional>
 #include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
+#include "FridaHelper.h"
+#include "nlohmann/json.hpp"
+#include "utils/Macros.h"
+#include "utils/Result.h"
+#include "utils/SmallMap.h"
+
 namespace frida {
 class Session;
-using RpcResult = std::expected<nlohmann::json, nlohmann::json>;
+using RpcResult = Result<nlohmann::json, nlohmann::json>;
 
 class Script {
 public:

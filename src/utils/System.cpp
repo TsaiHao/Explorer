@@ -14,7 +14,7 @@
 #include <cxxabi.h>
 
 static bool IsNumeric(std::string_view str) {
-  return !str.empty() && std::ranges::all_of(str, ::isdigit);
+  return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
 }
 
 static std::string_view GetBaseName(std::string_view cmdline) {
