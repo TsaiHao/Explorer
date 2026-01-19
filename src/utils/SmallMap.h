@@ -114,14 +114,14 @@ public:
 
   template <typename... ArgTypes>
   std::pair<iterator, bool> Emplace(ArgTypes &&...Args) {
-    PairType temp_pair_for_key_extraction(std::forward<ArgTypes>(Args)...);
-    const KeyType &key = temp_pair_for_key_extraction.first;
+    PairType temp_pair(std::forward<ArgTypes>(Args)...);
+    const KeyType &key = temp_pair.first;
 
     auto it = Find(key);
     if (it != End()) {
       return {it, false};
     }
-    data.emplace_back(std::forward<ArgTypes>(Args)...);
+    data.push_back(std::move(temp_pair)); // Move the temp_pair instead
     return {std::prev(data.end()), true};
   }
 

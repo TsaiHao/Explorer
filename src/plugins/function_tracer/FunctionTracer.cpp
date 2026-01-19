@@ -233,12 +233,11 @@ public:
 
     auto const &symbols = result.Unwrap();
     if (symbols.empty()) {
-      LOGW("No java symbols resolved for {}", symbols.dump());
+      LOGW("No java symbols resolved in rpc call {}", params.data());
       return NotFound("No java symbols resolved");
     }
 
-    LOGD("Resolved {} java symbols: {}", symbols.size(),
-         symbols.value().dump(1));
+    LOGD("Resolved {} java symbols: {}", symbols.size(), symbols.dump(1));
     ComposeTraceArguments(symbols, config);
 
     return Ok();

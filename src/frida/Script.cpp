@@ -243,7 +243,7 @@ void Script::OnRpcReturn(json &msg) {
       LOGE("Invalid RPC return message: {}", msg.dump());
       return;
     }
-    json result = payload[3];
+    json result = json(payload[3]);
 
     std::lock_guard lock(m_rpc_call_mutex);
 
