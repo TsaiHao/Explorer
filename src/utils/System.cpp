@@ -54,16 +54,19 @@ std::string ReadFileToBuffer(std::string_view file_path, bool is_virtual_file) {
     while ((bytes_read = read(fd, buf.data(), buf.size())) > 0) {
       file_content.append(buf.data(), bytes_read);
     }
+    close(fd);
     return file_content;
   }
 
   auto file_size = lseek(fd, 0, SEEK_END);
   if (file_size == 0) {
+    close(fd);
     return {};
   }
   if (file_size < 0) {
     LOGE("Reading {} failed, error = {}, file size= {}", file_path,
          strerror(errno), file_size);
+    close(fd);
     return {};
   }
 
@@ -103,9 +106,11 @@ bool EnumerateProcesses(const EnumerateProcessCallback &callback) {
     }
 
     if (callback(info)) {
+      closedir(proc_dir);
       return true;
     }
   }
+  closedir(proc_dir);
   return false;
 }
 

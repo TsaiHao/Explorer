@@ -91,3 +91,12 @@ public:
     return NewResultType(ErrType<E>(std::get<1>(m_storage)));
   }
 };
+
+// Helper functions for creating Result instances
+template <typename T> constexpr OkType<T> Ok(T value) {
+  return OkType<T>(std::move(value));
+}
+
+template <typename E> constexpr ErrType<E> Err(E error) {
+  return ErrType<E>(std::move(error));
+}

@@ -36,6 +36,8 @@ Status Session::CreateScript(std::string_view name, std::string_view source) {
   m_scripts[std::string(name)] =
       std::make_unique<Script>(name, source, m_session);
 
+  RegisterCacheCallback(m_scripts[std::string(name)].get());
+
   return Ok();
 }
 
@@ -180,6 +182,18 @@ Status Session::RemoveScript(std::string_view name) {
   m_scripts.Erase(name);
   script->Unload();
   return Ok();
+}
+
+void Session::RegisterCacheCallback(Script *script) {
+  script->AddMessageCallback(
+      "__message_cache__",
+      [this](Script *, const nlohmann::json &msg, const uint8_t *, size_t) {
+        if (msg.contains("payload")) {
+          m_message_cache.Push(msg["payload"]);
+        } else {
+          m_message_cache.Push(msg);
+        }
+      });
 }
 
 } // namespace frida

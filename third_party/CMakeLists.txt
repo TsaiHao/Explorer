@@ -39,14 +39,14 @@ else()
     endif()
 endif()
 
-if (ENABLE_NETWORKING)
-    add_subdirectory(libcurl)
-    target_compile_definitions(DEPS INTERFACE ENABLE_NETWORKING)
-endif ()
-
 if (ENABLE_SQLITE)
     add_subdirectory(sqlite)
     target_compile_definitions(DEPS INTERFACE ENABLE_SQLITE)
 endif ()
+
+set(POCO_MINIMAL_BUILD FALSE)
+set(BUILD_SHARED_LIBS FALSE)
+add_subdirectory(poco)
+target_link_libraries(DEPS INTERFACE Poco::Net)
 
 target_include_directories(DEPS INTERFACE ${CMAKE_CURRENT_LIST_DIR})

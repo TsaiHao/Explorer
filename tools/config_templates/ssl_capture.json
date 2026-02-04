@@ -1,0 +1,11 @@
+{
+  "sessions": [
+    {
+      "app": "com.amazon.avod.thirdpartyclient",
+      "spawn": true,
+      "ssl_dumper": {
+        "output": "/data/local/tmp/ssl_traffic.bin"
+      }
+    }
+  ]
+}

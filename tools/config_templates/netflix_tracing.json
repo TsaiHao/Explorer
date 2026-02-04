@@ -1,0 +1,43 @@
+{
+  "sessions": [
+    {
+      "app": "com.netflix.mediaclient",
+      "spawn": true,
+      "trace": [
+        {
+          "type": "java",
+          "class": "android.media.MediaCodec",
+          "method": "flush",
+          "arguments": true,
+          "log": true,
+          "backtrace": true,
+          "atrace": false
+        },
+        {
+          "type": "java",
+          "class": "android.media.MediaCodec",
+          "method": "start",
+          "arguments": true,
+          "log": true,
+          "backtrace": true
+        },
+        {
+          "type": "java",
+          "class": "android.media.MediaCodec",
+          "method": "stop",
+          "arguments": false,
+          "log": true,
+          "backtrace": false
+        },
+        {
+          "type": "java",
+          "class": "android.media.MediaPlayer",
+          "method": "setDataSource",
+          "arguments": true,
+          "log": true,
+          "backtrace": false
+        }
+      ]
+    }
+  ]
+}

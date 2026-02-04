@@ -86,9 +86,11 @@ private:
   std::vector<utils::ProcessInfo> m_process_infos;
 
   std::unique_ptr<frida::Device> m_device;
+  std::string config_file_path_;
 };
 
-Application::Impl::Impl(const std::vector<std::string_view> &args) {
+Application::Impl::Impl(const std::vector<std::string_view> &args)
+    : config_file_path_(kConfigFilePathAbsolute) {
   InitLogger();
 
   frida_init();
@@ -98,10 +100,10 @@ Application::Impl::Impl(const std::vector<std::string_view> &args) {
 
   std::string config;
 
-  if (utils::FileExists(kConfigFilePathAbsolute)) {
-    config = utils::ReadFileToBuffer(kConfigFilePathAbsolute);
+  if (utils::FileExists(config_file_path_)) {
+    config = utils::ReadFileToBuffer(config_file_path_);
   } else {
-    LOGE("Config file not found in location: {}", kConfigFilePathAbsolute);
+    LOGE("Config file not found in location: {}", config_file_path_);
     exit(1);
   }
 
@@ -153,8 +155,9 @@ void Application::Impl::Shutdown() {
 }
 
 void Application::Impl::HandleArgs(const std::vector<std::string_view> &args) {
-  constexpr std::string_view kHelpOption = "-help";
-  constexpr std::string_view kVersionOption = "-version";
+  constexpr std::string_view kHelpOption = "--help";
+  constexpr std::string_view kVersionOption = "--version";
+  constexpr std::string_view kConfigOption = "--config";
 
   for (int i = 1; i < static_cast<int>(args.size()); ++i) {
     const auto &arg = args[i];
@@ -162,12 +165,15 @@ void Application::Impl::HandleArgs(const std::vector<std::string_view> &args) {
     if (arg == kHelpOption) {
       std::cout << "Usage: explorer [options]\n"
                    "Options:\n"
-                   "  --help       Show this help message\n"
-                   "  --version    Show version information\n";
+                   "  --help               Show this help message\n"
+                   "  --version            Show version information\n"
+                   "  --config FILE        Use specified config file\n";
       exit(0);
     } else if (arg == kVersionOption) {
       std::cout << "Explorer version " << VERSION_STRING << "\n";
       exit(0);
+    } else if (arg == kConfigOption && i + 1 < static_cast<int>(args.size())) {
+      config_file_path_ = args[++i];
     } else {
       std::cerr << "Unknown argument: " << arg << "\n";
       exit(1);
@@ -185,6 +191,4 @@ void Application::Run() const {
   m_impl->Run();
 }
 
-void Application::Shutdown() {
-  m_impl->Shutdown();
-}
+void Application::Shutdown() { m_impl->Shutdown(); }

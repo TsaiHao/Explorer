@@ -31,8 +31,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(TARGET_ANDROID ON CACHE BOOL "Compile for Android platform")
 set(ENABLE_DEBUG OFF CACHE BOOL "Enable debug logs")
 
-# todo: refactor install_dep.sh to adapt to cmake options
-option(ENABLE_NETWORKING "Enabel features that require networking/http. Enabling it would build libcurl" OFF)
 option(ENABLE_SQLITE "Enable features that require sqlite(data output). Enabling it would build sqlite3" OFF)
 
 if (TARGET_ANDROID)
@@ -40,8 +38,12 @@ if (TARGET_ANDROID)
 endif ()
 
 set(LOCAL_CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(${LOCAL_CMAKE_MODULE_PATH}/Dependencies.cmake)
 include(${LOCAL_CMAKE_MODULE_PATH}/EmbedJs.cmake)
 include(${LOCAL_CMAKE_MODULE_PATH}/LocalFridaFinder.cmake)
+
+# Fetch third-party dependencies at configure time
+install_dependencies()
 
 add_library(COMMON_SETTINGS INTERFACE)
 target_include_directories(COMMON_SETTINGS INTERFACE 
@@ -49,6 +51,10 @@ target_include_directories(COMMON_SETTINGS INTERFACE
     ${PROJECT_BINARY_DIR}/generated
 )
 target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror -g)
+
+# Add threading support for cpp-httplib
+find_package(Threads REQUIRED)
+target_link_libraries(COMMON_SETTINGS INTERFACE Threads::Threads)
 
 if (ENABLE_DEBUG)
     target_compile_definitions(COMMON_SETTINGS INTERFACE EXP_DEBUG)
@@ -60,7 +66,7 @@ endif ()
 if (TARGET_ANDROID)
     target_compile_definitions(COMMON_SETTINGS INTERFACE TARGET_ANDROID)
     target_compile_options(COMMON_SETTINGS INTERFACE -Wall -Wextra -Werror)
-    target_compile_options(COMMON_SETTINGS INTERFACE 
+    target_compile_options(COMMON_SETTINGS INTERFACE
         $<$<COMPILE_LANG_AND_ID:CXX,Clang>:-Wno-unused-command-line-argument>
     )
     target_link_libraries(COMMON_SETTINGS INTERFACE log)

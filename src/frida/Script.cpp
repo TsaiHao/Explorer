@@ -293,7 +293,7 @@ void Script::ProcessMessage(const FridaScript *script, std::string_view message,
 
   LOCK();
   for (auto &callback : m_callbacks) {
-    callback.second(this, message, data_pointer, data_size);
+    callback.second(this, msg_obj, data_pointer, data_size);
   }
 }
 } // namespace frida

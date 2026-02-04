@@ -12,6 +12,7 @@
 /third_party/sqlite
 /third_party/spdlog
 /third_party/libcurl/curl
+/third_party/poco
 
 /compile_commands.json
 /debug.js

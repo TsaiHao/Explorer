@@ -67,6 +67,8 @@ std::string Status::DebugString() const {
 #endif
 }
 
+StatusCode Status::Code() const { return m_code; }
+
 std::ostream &operator<<(std::ostream &os, const Status &status) {
   return os << status.CodeString()
 #ifdef EXP_DEBUG

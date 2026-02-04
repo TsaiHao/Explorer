@@ -1,0 +1,28 @@
+{
+  "sessions": [
+    {
+      "app": "com.example.nativeapp",
+      "spawn": true,
+      "trace": [
+        {
+          "type": "native",
+          "namespace": "std",
+          "class": "vector",
+          "method": "push_back",
+          "arguments": true,
+          "log": true,
+          "backtrace": true
+        },
+        {
+          "type": "native",
+          "namespace": "std",
+          "class": "string",
+          "method": "length",
+          "arguments": true,
+          "log": true,
+          "backtrace": false
+        }
+      ]
+    }
+  ]
+}

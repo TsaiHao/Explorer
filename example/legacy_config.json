@@ -1,0 +1,17 @@
+{
+  "sessions": [
+    {
+      "app": "com.example.testapp",
+      "spawn": true,
+      "trace": [
+        {
+          "type": "java",
+          "class": "android.app.Activity",
+          "method": "onCreate",
+          "arguments": true,
+          "log": true
+        }
+      ]
+    }
+  ]
+}

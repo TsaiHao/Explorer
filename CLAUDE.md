@@ -8,319 +8,293 @@
 - Real-time Java and native C++ function tracing
 - SSL/TLS traffic interception and logging
 - Custom TypeScript agent execution
-- Multi-session process management
+- Multi-session process management via HTTP API
+- Per-session message caching with drain API
+- Persistent daemon mode with state recovery
 - Android TV optimization (Fire TV tested)
 
 ## Architecture
 
+Explorer operates in two modes: **Daemon mode** (default, HTTP API) and **Legacy mode** (config-file based).
+
 ```
-┌─────────────────────────────────────────────────────┐
-│   Configuration Layer (config.json)                 │
-│   - JSON-based declarative configuration            │
-└──────────────┬──────────────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────────────┐
-│   Application Layer (main.cpp)                      │
-│   - Config loading, logging, privilege checks       │
-└──────────────┬──────────────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────────────┐
-│   Device Manager (frida::Device)                     │
-│   - Process attachment/spawning, session coordination│
-└──────────────┬──────────────────────────────────────┘
-               │
-        ┌──────┴──────┬──────────┐
-        │             │          │
-    Session1      Session2   SessionN
-   (Per-PID)     (Per-PID)  (Per-PID)
-   │                │         │
-   ├─Scripts        ├─Scripts ├─Scripts
-   └─Plugins        └─Plugins └─Plugins
-     ├─FunctionTracer
-     └─SslDumper
+Daemon Mode Architecture
+========================
+                          HTTP Clients (curl, Python controller, Postman)
+                                  │
+                    ┌─────────────▼─────────────────────┐
+                    │   HTTP Layer (Poco::Net)           │
+                    │   HttpServer ─► ApiRouter          │
+                    │         │                          │
+                    │   ┌─────▼──────────────────────┐   │
+                    │   │ Request Handlers            │   │
+                    │   │  StartSession  StopSession  │   │
+                    │   │  Status  List  DrainMessages│   │
+                    │   │  Health  Metrics  Stats     │   │
+                    │   └─────┬──────────────────────┘   │
+                    └─────────┼──────────────────────────┘
+                              │
+                    ┌─────────▼──────────────────────────┐
+                    │   ApplicationDaemon (PIMPL)         │
+                    │   - Session orchestration           │
+                    │   - State persistence               │
+                    │   - Signal handling                 │
+                    └─────────┬──────────────────────────┘
+                              │
+                    ┌─────────▼──────────────────────────┐
+                    │   Device Manager (frida::Device)    │
+                    │   - Process attachment/spawning     │
+                    │   - Session lifecycle management    │
+                    │   - Session metadata tracking       │
+                    └─────────┬──────────────────────────┘
+                              │
+                    ┌─────┬───┴───┬─────────┐
+                    │     │       │         │
+                 Session1  Session2  ...  SessionN
+                (Per-PID) (Per-PID)       (Per-PID)
+                    │
+          ┌─────────┼──────────┐
+          │         │          │
+       Scripts  MessageCache  Plugins
+                              ├─ FunctionTracer
+                              └─ SslDumper
 ```
+
+## Source Code Structure
+
+```
+src/
+├── main.cpp                          # Entry point, mode selection, daemonization
+├── Application.{h,cpp}               # Legacy config-file mode
+├── ApplicationDaemon.{h,cpp}         # Daemon mode (PIMPL pattern)
+├── frida/
+│   ├── Device.{h,cpp}               # FRIDA device & session management
+│   ├── Session.{h,cpp}              # Per-process session with MessageCache
+│   ├── Script.{h,cpp}               # TypeScript agent lifecycle & RPC
+│   └── FridaHelper.h                # FRIDA SDK type helpers
+├── http/
+│   ├── HttpServer.{h,cpp}           # Poco::Net HTTP server wrapper
+│   ├── ApiRouter.{h,cpp}            # URL route registration & dispatch
+│   ├── ApiSchema.{h,cpp}            # Request validation & command parsing
+│   ├── RequestHandler.{h,cpp}       # Base handler (JSON parse, responses)
+│   ├── AsyncRequestHandler.{h,cpp}  # Async handler with cancellation
+│   └── handlers/
+│       ├── StartSessionHandler       # POST /api/v1/session/start
+│       ├── StopSessionHandler        # POST /api/v1/session/stop
+│       ├── StatusHandler             # POST /api/v1/session/status
+│       ├── ListSessionsHandler       # POST /api/v1/session/list
+│       ├── DrainMessagesHandler      # POST /api/v1/session/messages
+│       ├── HealthHandler             # GET  /health, /api/v1/health
+│       ├── MetricsHandler            # GET  /api/v1/metrics
+│       ├── StatsHandler              # GET  /api/v1/daemon/stats
+│       └── SessionDispatcherHandler  # POST /api/v1/session (generic)
+├── plugins/
+│   ├── Plugin.{h,cpp}               # Plugin base class
+│   ├── function_tracer/             # FunctionTracer plugin
+│   └── ssl_dumper/                  # SslDumper plugin
+└── utils/
+    ├── Status.{h,cpp}               # StatusCode enum & Status type
+    ├── Result.h                      # Result<T,E> for error propagation
+    ├── MessageCache.h                # Thread-safe bounded message buffer
+    ├── StateManager.{h,cpp}          # Persistent daemon state & recovery
+    ├── SmallMap.h                    # Stack-based small map
+    ├── Log.h                         # Logging macros (spdlog/logcat)
+    ├── ErrorHandling.{h,cpp}         # HTTP error response helpers
+    └── ...                           # DB, HttpDownloader, Subprocess, System, Util
+
+agents/                               # TypeScript FRIDA agents
+├── FunctionTracer.ts                 # Function tracing agent
+├── SslDumper.ts                      # SSL interception agent
+└── Utils.ts                          # Shared utilities
+
+tools/                                # Python tooling
+├── explorer_controller.py            # CLI controller for daemon API
+├── examples.py                       # Interactive examples
+├── debug_health.py                   # Health diagnosis
+├── test_endpoints.py                 # Endpoint testing
+└── config_templates/                 # Pre-built session configs
+
+docs/                                 # Technical documentation
+├── API_REFERENCE.md                  # Complete API reference
+├── API_SPECIFICATION.md              # API request/response spec
+├── DAEMON_MODE.md                    # Daemon architecture deep dive
+├── DAEMON_OPERATION.md               # Operational guide & deployment
+├── SESSION_HANDLERS.md               # Handler implementation details
+├── DEVICE_ENHANCEMENTS.md            # Device class API docs
+└── BACKWARD_COMPATIBILITY.md         # Legacy mode migration guide
+```
+
+## HTTP API Endpoints
+
+All session endpoints use `POST` with JSON body `{"action": "<cmd>", "data": {...}}`.
+
+| Method | Endpoint | Handler | Description |
+|--------|----------|---------|-------------|
+| GET | `/health` | HealthHandler | Basic health check |
+| GET | `/api/v1/health` | HealthHandler | Detailed component health |
+| GET | `/api/v1/metrics` | MetricsHandler | Operational metrics |
+| GET | `/api/v1/daemon/stats` | StatsHandler | Daemon statistics |
+| POST | `/api/v1/session/start` | StartSessionHandler | Create session |
+| POST | `/api/v1/session/stop` | StopSessionHandler | Terminate session |
+| POST | `/api/v1/session/status` | StatusHandler | Query session status |
+| POST | `/api/v1/session/list` | ListSessionsHandler | List active sessions |
+| POST | `/api/v1/session/messages` | DrainMessagesHandler | Drain cached messages |
+| POST | `/api/v1/session` | SessionDispatcherHandler | Generic dispatcher |
+
+### API Command Enum (`ApiSchema`)
+
+```cpp
+enum class ApiCommand { kStart, kStop, kStatus, kList, kDrain };
+```
+
+## Message Cache System
+
+Each `Session` owns a `utils::MessageCache` -- a thread-safe bounded FIFO buffer (default capacity: 1000 messages). Script messages from FRIDA agents are automatically cached via a registered callback.
+
+**Flow**: FRIDA agent `send()` -> `Script::ProcessMessage()` -> message callbacks -> `MessageCache::Push()`
+
+**Drain API**: `POST /api/v1/session/messages` with `{"action": "drain", "data": {"session": "<pid>"}}` atomically retrieves and clears the buffer, returning `message_count`, `dropped_count`, and the `messages` array.
+
+Only JSON payloads are cached; binary data (e.g., SSL traffic) is not included. The `dropped_count` field reports messages lost to buffer overflow since the last drain.
 
 ## Configuration System
 
-### Primary Interface: `/data/local/tmp/config.json`
+### Session Configuration (used by both legacy config.json and daemon API)
 
 ```json
 {
-  "sessions": [
+  "app": "com.example.package",
+  "spawn": true,
+  "pid": 1234,
+  "am_start": "activity/.MainActivity",
+  "scripts": ["path/to/script.js"],
+  "script_source": "console.log('hi')",
+  "trace": [
     {
-      "app": "com.example.package",           // Target package name
-      "spawn": true,                          // Launch if not running
-      "pid": 1234,                           // Or attach to existing PID
-      "am_start": "activity/.MainActivity",   // Or launch via ActivityManager
-      "scripts": ["path/to/script.js"],      // External script files
-      "script_source": "console.log('hi')",  // Inline JavaScript
-      "trace": [/* TraceConfig objects */],   // Function tracing config
-      "ssl_dumper": {                        // SSL interception config
-        "output": "/path/to/dump.bin"
-      }
-    }
-  ]
-}
-```
-
-### Trace Configuration Schema
-
-```json
-{
-  "type": "native|java",                    // Target type
-  "namespace": "std",                       // C++ namespace (native only)
-  "class": "android.media.MediaPlayer",     // Class name
-  "method": "start",                        // Method name
-  "arguments": true,                        // Log method arguments
-  "log": true,                             // Output to logcat
-  "backtrace": true,                       // Include call stack
-  "atrace": true,                          // Android atrace integration
-  "transform": [                           // Value transformation
-    {
-      "index": 0,                          // Argument index (-1 = return)
-      "new_value": "replacement_value"      // New value to inject
+      "type": "java|native",
+      "namespace": "std",
+      "class": "android.media.MediaPlayer",
+      "method": "start",
+      "arguments": true,
+      "log": true,
+      "backtrace": true,
+      "atrace": true,
+      "transform": [{"index": 0, "new_value": "replacement_value"}],
+      "dump": "/path/to/sqlite.db"
     }
   ],
-  "dump": "/path/to/sqlite.db"             // SQLite logging path
+  "ssl_dumper": {
+    "output": "/path/to/dump.bin"
+  }
 }
 ```
+
+### Process Attachment Priority
+1. **am_start** -- Launch via Android Activity Manager
+2. **spawn** -- Spawn application directly
+3. **pid** -- Attach to existing process ID
+4. **app** -- Find running process by package name
 
 ## Communication Protocols
 
-### RPC Protocol: Native ↔ TypeScript
+### RPC Protocol: Native <-> TypeScript
 
-**Protocol**: `frida:rpc`
-
-**Call Format** (Native → TypeScript):
-```json
-[
-  "frida:rpc",        // Protocol identifier
-  12345,              // Unique call ID
-  "call",             // Method type
-  "methodName",       // Target method
-  [param1, param2]    // Parameters array
-]
-```
-
-**Response Format** (TypeScript → Native):
-```json
-{
-  "type": "send",
-  "payload": [
-    "frida:rpc",      // Protocol ID
-    12345,            // Matching call ID
-    "ok",             // Status: "ok" or "error"
-    result_value      // Return value or error details
-  ]
-}
-```
+**Call** (Native -> TypeScript): `["frida:rpc", callId, "call", "methodName", [params]]`
+**Response** (TypeScript -> Native): `["frida:rpc", callId, "ok"|"error", result]`
 
 ### Event Message Types
 
-**Function Trace Events**:
-```json
-{
-  "event": "enter|exit",
-  "type": "native_trace|java_trace",
-  "identifier": "Class::method",
-  "callId": 42,                    // Pairs enter/exit events
-  "backtrace": "stack trace...",   // Optional
-  "arguments": [{"type": "int", "value": 123}],  // On enter
-  "result": {"type": "string", "value": "return_value"}  // On exit
-}
+**Function Trace**: `{"event": "enter|exit", "type": "native_trace|java_trace", "identifier": "Class::method", "callId": N, ...}`
+**SSL Interception**: `{"event": "ssl", "function": "SSL_read|SSL_write", "ssl_session_id": "...", ...}` with binary GBytes payload.
+
+## Key Design Patterns
+
+### ApplicationDaemon (PIMPL)
+```cpp
+class ApplicationDaemon {
+  std::unique_ptr<Impl> m_impl;
+};
+
+class ApplicationDaemon::Impl {
+  ApplicationDaemon& m_parent;             // Safe parent reference
+  std::unique_ptr<frida::Device> m_device;
+  std::unique_ptr<http::HttpServer> m_http_server;
+  std::unique_ptr<utils::StateManager> m_state_manager;
+};
+```
+Handlers receive `ApplicationDaemon*` via `&m_parent` (not pointer arithmetic).
+
+### Result<T, E> Error Propagation
+All fallible operations return `Result<T, Status>`. No exceptions for control flow.
+
+### Status Codes (`src/utils/Status.h`)
+```cpp
+enum class StatusCode : int8_t {
+  kOk, kPermissionDenied, kNotFound, kBadArgument,
+  kInvalidOperation, kInvalidState, kSdkFailure, kTimeout
+};
 ```
 
-**SSL Interception Events**:
-```json
-{
-  "event": "ssl",
-  "function": "SSL_read|SSL_write",
-  "ssl_session_id": "deadbeef",
-  "src_addr": 167772161,          // IP as integer
-  "src_port": 443,
-  "dst_addr": 167772162,
-  "dst_port": 8080,
-  "data": "<binary_payload>"      // Sent as GBytes
-}
-```
+### StateManager Locking
+`StateManager` uses a single `state_mutex_` for all operations. Methods that call other locked methods must use the internal `FlushToDiskLocked()` helper (not the public `FlushToDisk()`) to avoid self-deadlock on the non-recursive mutex.
 
-## Core Components
+## Thread Safety
 
-### Key Files
-- **Entry Point**: `src/main.cpp` - Config loading, initialization
-- **Application**: `src/Application.{h,cpp}` - Main application logic
-- **Device Manager**: `src/frida/Device.{h,cpp}` - Process management
-- **Session Manager**: `src/frida/Session.{h,cpp}` - Per-process sessions
-- **Script Manager**: `src/frida/Script.{h,cpp}` - TypeScript agent management
-- **Config Schema**: `tools/config-schema.json` - JSON Schema validation
-
-### Plugin System
-- **Base Class**: `src/plugins/Plugin.h` - Plugin interface
-- **FunctionTracer**: `src/plugins/function_tracer/` - Function interception
-- **SslDumper**: `src/plugins/ssl_dumper/` - SSL traffic capture
-
-### TypeScript Agents
-- **Function Tracer**: `agents/FunctionTracer.ts` - Core tracing logic
-- **SSL Dumper**: `agents/SslDumper.ts` - SSL interception implementation
-- **Utilities**: `agents/Utils.ts` - Common helper functions
-
-## Process Attachment Methods
-
-Priority order:
-1. **am_start**: Launch via Android Activity Manager
-2. **spawn**: Spawn application directly
-3. **pid**: Attach to existing process ID
-4. **app**: Find running process by package name
+- **Script callbacks**: `Script::m_mutex` guards callback map and message dispatch
+- **Session map**: `Device::m_sessions_mutex` protects session creation/removal/lookup
+- **Message cache**: `MessageCache::m_mutex` is leaf-level (never acquires another lock)
+- **State persistence**: `StateManager::state_mutex_` guards all state reads/writes
+- **Lock ordering**: `sessions_mutex` -> `cache_mutex` (no cycles, no deadlock risk)
+- **RPC sync**: `std::condition_variable` for blocking native-to-TypeScript RPC calls
 
 ## TypeScript Agent RPC Exports
 
 ```typescript
 rpc.exports = {
-  // Native symbol resolution for C++ functions
-  resolveNativeSymbols(namespace: string, cls: string, method: string): Array<NativeSymbol>,
-
-  // Java method signature resolution
-  resolveJavaSignature(cls: string, method: string | null): Promise<Array<JavaMethod>>,
-
-  // Start native function tracing
-  traceNativeFunctions(addrs: number[], identifiers: string[], config: TraceConfig): Array<AgentResult>,
-
-  // Start Java method tracing
-  traceJavaMethods(methods: JavaMethod[], config: TraceConfig): Promise<Array<AgentResult>>
+  resolveNativeSymbols(namespace, cls, method): Array<NativeSymbol>,
+  resolveJavaSignature(cls, method | null): Promise<Array<JavaMethod>>,
+  traceNativeFunctions(addrs[], identifiers[], config): Array<AgentResult>,
+  traceJavaMethods(methods[], config): Promise<Array<AgentResult>>
 }
 ```
-
-## Error Handling
-
-### Status Codes (`src/utils/Status.h`)
-```cpp
-enum class StatusCode : int8_t {
-  kOk,                 // Success
-  kPermissionDenied,   // Access denied
-  kNotFound,           // Resource not found
-  kBadArgument,        // Invalid parameter
-  kInvalidOperation,   // Operation not allowed
-  kInvalidState,       // Illegal state
-  kSdkFailure,         // FRIDA SDK error
-  kTimeout,            // Operation timeout
-};
-```
-
-### Result Type Pattern
-All operations return `Result<T, E>` for safe error propagation without exceptions.
 
 ## Build Requirements
 
 - **Language**: C++17 minimum, C++23 features used
 - **Build System**: CMake 3.20+
 - **Android NDK**: >= 29 required
-- **Target Platform**: Android TV (armv7a)
-- **FRIDA Runtime**: QuickJS (FRIDA_SCRIPT_RUNTIME_QJS)
+- **Target Platform**: Android TV (armv7a, 32-bit)
+- **HTTP Server**: Poco::Net framework
+- **FRIDA Runtime**: QuickJS (`FRIDA_SCRIPT_RUNTIME_QJS`)
 
-## Usage Examples
+## Development Workflow
 
-### Basic Function Tracing
-```json
-{
-  "sessions": [
-    {
-      "app": "com.netflix.mediaclient",
-      "spawn": true,
-      "trace": [
-        {
-          "type": "java",
-          "class": "android.media.MediaCodec",
-          "method": "flush",
-          "backtrace": true,
-          "log": true
-        }
-      ]
-    }
-  ]
-}
+```bash
+# Build
+cd /Users/zaijun/Workspace/code/explorer
+make clean && make
+
+# Deploy to Android TV
+adb push ./build/explorer /data/local/tmp/
+adb shell chmod +x /data/local/tmp/explorer
+
+# Start daemon
+adb shell "cd /data/local/tmp && ./explorer --daemon --host 0.0.0.0 --port 34512"
+
+# Port forwarding
+adb forward tcp:34512 tcp:34512
+
+# Health check
+curl http://127.0.0.1:34512/health
+
+# Monitor logs
+adb logcat -s ExplorerDaemon:I ExplorerDaemon:E
 ```
 
-### SSL Traffic Capture
-```json
-{
-  "sessions": [
-    {
-      "app": "com.amazon.tv.localgallery",
-      "spawn": true,
-      "ssl_dumper": {
-        "output": "/data/local/tmp/ssl_traffic.bin"
-      }
-    }
-  ]
-}
-```
+## Symbol Resolution
 
-### Native C++ Tracing
-```json
-{
-  "sessions": [
-    {
-      "app": "com.example.nativeapp",
-      "spawn": true,
-      "trace": [
-        {
-          "type": "native",
-          "namespace": "std",
-          "class": "vector",
-          "method": "push_back",
-          "arguments": true
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Current Limitations & Improvement Opportunities
-
-### User Experience Issues
-- **Complex Configuration**: Users must learn detailed JSON schema
-- **Manual Workflow**: Edit config on PC → Deploy to DUT → Run binary
-- **Error-Prone**: Typos in JSON cause runtime failures
-- **No Discoverability**: Hard to know available methods/classes
-
-### Proposed MCP Server Solution
-Enable natural language commands like:
-- "Trace MediaCodec.flush with callstack on Netflix app"
-- "Capture SSL traffic from Amazon Prime Video"
-- "Monitor all file I/O operations in YouTube TV"
-
-The MCP server would:
-1. Parse natural language → Generate config.json
-2. Deploy config to device automatically
-3. Execute explorer binary
-4. Stream results back to Claude
-
-This would transform the user experience from manual JSON editing to conversational instrumentation.
-
-## Technical Insights
-
-### Thread Safety
-- `std::mutex` for script message callbacks
-- Condition variables for RPC synchronization
-- Atomic bools for session state management
-
-### Memory Management
-- Smart pointers throughout (unique_ptr, shared_ptr)
-- FRIDA object refcounting with custom deleters
-- Stack-based SmallMap to avoid heap fragmentation
-
-### Symbol Resolution
-Custom C++ mangling pattern:
+Custom C++ mangling pattern for native function lookup:
 ```
 *<namespace_len><namespace><class_len><class><method_len><method>*
 Example: *3std6String6length*
 ```
-
-### Binary Data Handling
-TypeScript agents can send binary data alongside JSON:
-```typescript
-send(jsonMessage, binaryData);  // GBytes payload
-```
-
-This enables SSL traffic dumps and other binary analysis workflows.

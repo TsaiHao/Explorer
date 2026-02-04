@@ -87,7 +87,7 @@ void KillAppIfRunning(std::string_view app_name) {
 }
 } // namespace
 
-Device::Device() {
+Device::Device() : m_device_created_at(std::chrono::steady_clock::now()) {
   LOGI("Creating frida device {}", (void *)this);
 
   m_manager = frida_device_manager_new();
@@ -433,6 +433,353 @@ Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
   }
 
   return BadArgument("No PID or app name provided");
+}
+
+// Enhanced session management methods for daemon mode
+
+Result<nlohmann::json, Status>
+Device::CreateSession(const nlohmann::json &config) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  LOGI("Creating new session with config: {}", config.dump());
+
+  // Validate configuration
+  if (!config.is_object()) {
+    return Err<Status>(BadArgument("Session config must be a JSON object"));
+  }
+
+  // Extract app name for tracking
+  std::string app_name = ExtractAppNameFromConfig(config);
+  if (app_name.empty()) {
+    return Err<Status>(BadArgument("Unable to extract app name from config"));
+  }
+
+  // Check for existing session with same target
+  if (config.contains("pid")) {
+    pid_t target_pid = config["pid"];
+    if (GetSession(target_pid) != nullptr) {
+      return Err<Status>(InvalidOperation("Session already exists for PID " +
+                                          std::to_string(target_pid)));
+    }
+  } else if (config.contains("app")) {
+    // Check if app is already being instrumented
+    auto existing_proc = utils::FindProcessByName(app_name);
+    if (existing_proc.has_value() &&
+        GetSession(existing_proc->pid) != nullptr) {
+      return Err<Status>(
+          InvalidOperation("Session already exists for app " + app_name));
+    }
+  }
+
+  // Create the session
+  Status status = CreateSingleSession(config);
+  if (!status.Ok()) {
+    LOGE("Failed to create session: {}", status.Message());
+    return Err<Status>(status);
+  }
+
+  // Get the newly created session (should be the last one added)
+  Session *session = m_sessions.Back().second.get();
+  if (session == nullptr) {
+    return Err<Status>(
+        SdkFailure("Session creation succeeded but session is null"));
+  }
+
+  pid_t session_pid = session->GetPid();
+
+  // Create and store session metadata
+  SessionMetadata metadata(session_pid, app_name, config);
+  m_session_metadata.Emplace(session_pid, std::move(metadata));
+
+  // Update statistics
+  m_total_sessions_created++;
+
+  LOGI("Session created successfully for PID: {}", session_pid);
+
+  // Return session information
+  nlohmann::json session_data = {
+      {"session_id", std::to_string(session_pid)},
+      {"pid", session_pid},
+      {"app", app_name},
+      {"status", "active"},
+      {"created_at", std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count()},
+      {"config", config}};
+
+  return Ok<nlohmann::json>(session_data);
+}
+
+Result<nlohmann::json, Status>
+Device::CreateSessionWithCancellation(const nlohmann::json &config,
+                                      std::function<bool()> should_cancel) {
+
+  // Check for cancellation before starting
+  if (should_cancel && should_cancel()) {
+    return Err<Status>(Timeout("Session creation cancelled before starting"));
+  }
+
+  // Use the existing CreateSession implementation with periodic cancellation
+  // checks For now, we'll leverage the existing CreateSession method. In a more
+  // advanced implementation, we would add cancellation checks throughout the
+  // session creation process.
+
+  LOGI("Starting cancellable session creation with config: {}", config.dump());
+
+  // Check cancellation one more time before the heavy operation
+  if (should_cancel && should_cancel()) {
+    return Err<Status>(Timeout("Session creation cancelled"));
+  }
+
+  // Delegate to the main CreateSession method
+  // TODO: Enhance CreateSession to support cancellation checks internally
+  auto result = CreateSession(config);
+
+  // Check cancellation after creation
+  if (should_cancel && should_cancel()) {
+    // If we successfully created a session but now need to cancel,
+    // we should clean it up
+    if (result.IsOk()) {
+      try {
+        auto session_data = result.Unwrap();
+        std::string session_id = session_data["session_id"];
+        pid_t pid = std::stoi(session_id);
+        RemoveSession(pid);
+        LOGW("Cleaned up session {} after cancellation", session_id);
+      } catch (const std::exception &e) {
+        LOGE("Failed to clean up cancelled session: {}", e.what());
+      }
+    }
+    return Err<Status>(Timeout("Session creation was cancelled"));
+  }
+
+  return result;
+}
+
+Status Device::RemoveSession(pid_t target_pid) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  LOGI("Removing session for PID: {}", target_pid);
+
+  // Find the session
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    return NotFound("Session not found for PID " + std::to_string(target_pid));
+  }
+
+  // Find the process info for this session
+  utils::ProcessInfo target_proc_info;
+  bool found = false;
+
+  m_sessions.ForEach([&target_pid, &target_proc_info,
+                      &found](const utils::ProcessInfo &proc_info,
+                              const std::unique_ptr<Session> &) {
+    if (proc_info.pid == target_pid) {
+      target_proc_info = proc_info;
+      found = true;
+    }
+  });
+
+  if (!found) {
+    return NotFound("Process info not found for PID " +
+                    std::to_string(target_pid));
+  }
+
+  // Update metadata status
+  if (m_session_metadata.Contains(target_pid)) {
+    m_session_metadata[target_pid].session_status = "terminated";
+  }
+
+  // Remove the session (this calls the Session destructor which cleans up)
+  Status status = Detach(target_proc_info);
+  if (!status.Ok()) {
+    LOGW("Detach failed for PID {}: {}", target_pid, status.Message());
+    // Continue with cleanup even if detach failed
+  }
+
+  // Clean up metadata
+  m_session_metadata.Erase(target_pid);
+
+  LOGI("Session removed successfully for PID: {}", target_pid);
+  return Ok();
+}
+
+Result<nlohmann::json, Status>
+Device::DrainSessionMessages(pid_t target_pid) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    return Err<Status>(
+        NotFound("Session not found for PID " + std::to_string(target_pid)));
+  }
+
+  size_t dropped_count = 0;
+  auto messages = session->GetMessageCache().Drain(dropped_count);
+
+  nlohmann::json messages_array = nlohmann::json::array();
+  for (auto &msg : messages) {
+    messages_array.push_back(std::move(msg));
+  }
+
+  nlohmann::json result = {
+      {"session_id", std::to_string(target_pid)},
+      {"pid", target_pid},
+      {"message_count", messages_array.size()},
+      {"dropped_count", dropped_count},
+      {"messages", std::move(messages_array)}};
+
+  return Ok<nlohmann::json>(result);
+}
+
+Result<nlohmann::json, Status> Device::GetSessionInfo(pid_t target_pid) const {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    return Err<Status>(
+        NotFound("Session not found for PID " + std::to_string(target_pid)));
+  }
+
+  // Get metadata
+  if (!m_session_metadata.Contains(target_pid)) {
+    return Err<Status>(NotFound("Session metadata not found for PID " +
+                                std::to_string(target_pid)));
+  }
+
+  const SessionMetadata &metadata = m_session_metadata.At(target_pid);
+  nlohmann::json session_info = SessionToJson(session, metadata);
+
+  return Ok<nlohmann::json>(session_info);
+}
+
+Result<nlohmann::json, Status>
+Device::ListAllSessions(const nlohmann::json &filter) const {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  LOGI("Listing sessions with filter: {}", filter.dump());
+
+  nlohmann::json::array_t sessions_array;
+
+  // Iterate through all sessions
+  m_sessions.ForEach([this, &filter, &sessions_array](
+                         const utils::ProcessInfo &proc_info,
+                         const std::unique_ptr<Session> &session) {
+    pid_t pid = session->GetPid();
+
+    // Get metadata if available
+    if (m_session_metadata.Contains(pid)) {
+      const SessionMetadata &metadata = m_session_metadata.At(pid);
+
+      // Apply filters if specified
+      bool include = true;
+
+      if (filter.contains("app") && !filter["app"].is_null()) {
+        std::string filter_app = filter["app"];
+        if (metadata.app_name != filter_app) {
+          include = false;
+        }
+      }
+
+      if (filter.contains("status") && !filter["status"].is_null()) {
+        std::string filter_status = filter["status"];
+        if (metadata.session_status != filter_status) {
+          include = false;
+        }
+      }
+
+      if (include) {
+        sessions_array.push_back(SessionToJson(session.get(), metadata));
+      }
+    } else {
+      // Session without metadata (legacy session)
+      if (!filter.contains("app") && !filter.contains("status")) {
+        nlohmann::json session_info = {
+            {"session_id", std::to_string(pid)},
+            {"pid", pid},
+            {"app", proc_info.cmd_line},
+            {"status", "active"},
+            {"created_at", 0}, // Unknown creation time
+            {"metadata_available", false}};
+        sessions_array.push_back(session_info);
+      }
+    }
+  });
+
+  nlohmann::json result = {{"sessions", sessions_array},
+                           {"total_count", sessions_array.size()}};
+
+  return Ok<nlohmann::json>(result);
+}
+
+nlohmann::json Device::GetSessionStatistics() const {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  auto uptime = std::chrono::steady_clock::now() - m_device_created_at;
+  auto uptime_seconds =
+      std::chrono::duration_cast<std::chrono::seconds>(uptime).count();
+
+  nlohmann::json stats = {
+      {"active_sessions", m_sessions.GetSize()},
+      {"total_sessions_created", m_total_sessions_created.load()},
+      {"device_uptime_seconds", uptime_seconds},
+      {"device_name", m_name},
+      {"pending_spawns", m_pending_spawns.size()}};
+
+  return stats;
+}
+
+// Helper methods
+
+Status Device::CreateSingleSession(const nlohmann::json &session_config) {
+  // Use the existing BuildOneSessionFromConfig logic but for a single session
+  return BuildOneSessionFromConfig(session_config);
+}
+
+nlohmann::json Device::SessionToJson(const Session *session,
+                                     const SessionMetadata &metadata) const {
+  auto created_timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+                               metadata.created_at.time_since_epoch())
+                               .count();
+
+  nlohmann::json session_info = {{"session_id", std::to_string(metadata.pid)},
+                                 {"pid", metadata.pid},
+                                 {"app", metadata.app_name},
+                                 {"status", metadata.session_status},
+                                 {"created_at", created_timestamp},
+                                 {"config", metadata.config}};
+
+  // Add additional session details if available
+  if (session != nullptr) {
+    session_info["is_attaching"] = session->IsAttaching();
+  }
+
+  return session_info;
+}
+
+std::string
+Device::ExtractAppNameFromConfig(const nlohmann::json &config) const {
+  if (config.contains("app") && config["app"].is_string()) {
+    return config["app"];
+  }
+
+  if (config.contains("pid") && config["pid"].is_number()) {
+    pid_t pid = config["pid"];
+    auto proc_info = utils::FindProcessByPid(pid);
+    if (proc_info.has_value()) {
+      return proc_info->cmd_line;
+    }
+  }
+
+  if (config.contains("am_start") && config["am_start"].is_string()) {
+    std::string am_command = config["am_start"];
+    auto package_name = ExtractAppNameFromAmCommand(am_command);
+    if (package_name.has_value()) {
+      return std::string(*package_name);
+    }
+  }
+
+  return "unknown";
 }
 
 } // namespace frida

@@ -2,6 +2,7 @@
 
 #include "Script.h"
 #include "plugins/Plugin.h"
+#include "utils/MessageCache.h"
 #include "utils/SmallMap.h"
 
 #include "nlohmann/json.hpp"
@@ -36,13 +37,17 @@ public:
 
   pid_t GetPid() const { return m_pid; }
 
+  utils::MessageCache &GetMessageCache() { return m_message_cache; }
+
 private:
+  void RegisterCacheCallback(Script *script);
   FridaSession *m_session{nullptr};
   std::atomic<bool> m_attaching{false};
 
   pid_t m_pid{0};
   SmallMap<std::string, std::unique_ptr<Script>> m_scripts;
   std::vector<std::unique_ptr<plugin::Plugin>> m_plugins;
+  utils::MessageCache m_message_cache;
 };
 
 } // namespace frida
