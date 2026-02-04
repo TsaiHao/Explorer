@@ -27,6 +27,8 @@ public:
 
   std::string_view CodeString() const;
 
+  std::string DebugString() const;
+
 private:
   // todo: optimize memory layout
   StatusCode m_code{StatusCode::kOk};

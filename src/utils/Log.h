@@ -26,6 +26,6 @@
 
 #define CHECK_STATUS(status_expr)                                              \
   if (const Status s = (status_expr); !s.Ok()) {                               \
-    LOGE("Status check failed: {}, status {}", #status_expr, s.CodeString());  \
+    LOGE("Status check failed: {}, status {}", #status_expr, s.DebugString()); \
     std::terminate();                                                          \
   }

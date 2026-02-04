@@ -17,7 +17,7 @@ public:
   friend class Device;
   Status CreateScript(std::string_view name, std::string_view source);
 
-  explicit Session(pid_t pid, FridaSession *session);
+  Session(pid_t pid, FridaSession *session);
   ~Session();
 
   DISABLE_COPY_AND_MOVE(Session);

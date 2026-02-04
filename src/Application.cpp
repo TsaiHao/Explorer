@@ -73,6 +73,7 @@ public:
   ~Impl();
 
   void Run() const;
+  void Shutdown();
 
 private:
   void HandleArgs(const std::vector<std::string_view> &args);
@@ -144,6 +145,13 @@ void Application::Impl::Run() const {
   LOGI("Application main loop stopped running");
 }
 
+void Application::Impl::Shutdown() {
+  LOGI("Shutting down application gracefully");
+  if (m_loop && g_main_loop_is_running(m_loop.get())) {
+    g_main_loop_quit(m_loop.get());
+  }
+}
+
 void Application::Impl::HandleArgs(const std::vector<std::string_view> &args) {
   constexpr std::string_view kHelpOption = "-help";
   constexpr std::string_view kVersionOption = "-version";
@@ -175,4 +183,8 @@ Application::~Application() { LOGI("Destroying Application {}", (void *)this); }
 void Application::Run() const {
   LOGI("Running Application {}", (void *)this);
   m_impl->Run();
+}
+
+void Application::Shutdown() {
+  m_impl->Shutdown();
 }

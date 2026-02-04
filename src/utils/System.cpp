@@ -123,6 +123,7 @@ std::vector<ProcessInfo> ListAllRunningProcesses() {
 std::optional<ProcessInfo> FindProcessByPid(pid_t pid) {
   if (ProcessInfo process;
       EnumerateProcesses([&process, pid](const ProcessInfo &info) {
+        LOGD("Checking process: {}(PID: {})", info.cmd_line, info.pid);
         if (info.pid == pid) {
           process = info;
           return true;
@@ -156,4 +157,6 @@ std::string DemangleSymbol(std::string_view symbol) {
 
   return status == 0 ? std::string(result.get()) : std::string(symbol);
 }
+
+void SleepForMilliseconds(int milliseconds) { usleep(milliseconds * 1000); }
 } // namespace utils

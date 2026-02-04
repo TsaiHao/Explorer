@@ -71,9 +71,11 @@ Status Session::LoadInlineScriptsFromConfig(const nlohmann::json &config) {
   auto const &scripts = config[kScriptsKey];
 
   if (scripts.is_string()) {
+    LOGD("Loading single inline script");
+
     auto const &script = scripts.get_ref<const std::string &>();
     if (script.empty()) {
-      return BadArgument("Empty script");
+      return Ok();
     }
     CHECK_STATUS(CreateScript("inline_script", script));
 
@@ -81,9 +83,14 @@ Status Session::LoadInlineScriptsFromConfig(const nlohmann::json &config) {
     if (user_script == nullptr) {
       return NotFound("Script not found");
     }
+
     user_script->Load();
   } else if (scripts.is_array()) {
+    LOGD("Loading {} inline scripts", scripts.size());
+
     for (size_t i = 0; i < scripts.size(); ++i) {
+      LOGD("Loading inline script {}", i);
+
       auto const &script = scripts[i];
       if (!script.is_string()) {
         return BadArgument("Invalid script format");
@@ -99,6 +106,7 @@ Status Session::LoadInlineScriptsFromConfig(const nlohmann::json &config) {
       if (user_script == nullptr) {
         return NotFound("Script not found");
       }
+
       user_script->Load();
     }
   } else {

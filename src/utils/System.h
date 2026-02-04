@@ -16,6 +16,7 @@ struct ProcessInfo {
   std::string cmd_line;
   pid_t pid;
 };
+
 inline bool operator==(const ProcessInfo &lhs, const ProcessInfo &rhs) {
   return lhs.pid == rhs.pid && lhs.command == rhs.command &&
          lhs.cmd_line == rhs.cmd_line;
@@ -31,4 +32,6 @@ std::optional<ProcessInfo> FindProcessByPid(pid_t pid);
 std::optional<ProcessInfo> FindProcessByName(std::string_view name);
 
 std::string DemangleSymbol(std::string_view symbol);
+
+void SleepForMilliseconds(int milliseconds);
 } // namespace utils

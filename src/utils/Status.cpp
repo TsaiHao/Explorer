@@ -59,6 +59,14 @@ std::string_view Status::CodeString() const {
   return Ok() ? "OK" : GetCodeString(m_code);
 }
 
+std::string Status::DebugString() const {
+#ifdef EXP_DEBUG
+  return std::string(CodeString()) + " (" + std::string(Message()) + ")";
+#else
+  return std::string(CodeString());
+#endif
+}
+
 std::ostream &operator<<(std::ostream &os, const Status &status) {
   return os << status.CodeString()
 #ifdef EXP_DEBUG

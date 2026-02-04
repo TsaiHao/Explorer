@@ -10,6 +10,7 @@ public:
   ~Application();
 
   void Run() const;
+  void Shutdown();
 
 private:
   class Impl;

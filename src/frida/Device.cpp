@@ -243,11 +243,15 @@ Status Device::SpawnAppAndAttach(std::string_view exec_name,
   }
 
   m_pending_spawns.push_back(static_cast<pid_t>(spawn_pid));
+
+  utils::SleepForMilliseconds(2000);
+
   auto proc_info = utils::FindProcessByPid(static_cast<pid_t>(spawn_pid));
   if (!proc_info.has_value()) {
     LOGE("Failed to find process by PID: {}", spawn_pid);
     return NotFound("Process not found by PID");
   }
+
   return Attach(*proc_info);
 }
 
