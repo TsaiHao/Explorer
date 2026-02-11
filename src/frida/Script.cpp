@@ -94,7 +94,7 @@ void Script::Unload() {
   GError *error{nullptr};
   LOCK();
   frida_script_unload_sync(m_script, nullptr, &error);
-  CHECK(error != nullptr);
+  CHECK(error == nullptr);
 
   frida_unref(m_script);
   m_script = nullptr;
