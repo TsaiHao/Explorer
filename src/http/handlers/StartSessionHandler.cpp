@@ -243,24 +243,15 @@ StartSessionHandler::ValidateTraceConfiguration(const json &trace_config) {
                          "' (must be 'java' or 'native')");
     }
 
-    // Required: class field
-    if (!trace_item.contains("class")) {
-      return BadArgument("Trace item " + std::to_string(i) +
-                         " missing required 'class' field");
+    // Validate class field if present
+    if (trace_item.contains("class")) {
+      if (!trace_item["class"].is_string()) {
+        return BadArgument("Trace item " + std::to_string(i) +
+                           " 'class' must be a string");
+      }
     }
 
-    if (!trace_item["class"].is_string()) {
-      return BadArgument("Trace item " + std::to_string(i) +
-                         " 'class' must be a string");
-    }
-
-    std::string class_name = trace_item["class"];
-    if (class_name.empty()) {
-      return BadArgument("Trace item " + std::to_string(i) +
-                         " 'class' cannot be empty");
-    }
-
-    // Optional but recommended: method field
+    // Validate method field if present
     if (trace_item.contains("method")) {
       if (!trace_item["method"].is_string()) {
         return BadArgument("Trace item " + std::to_string(i) +
@@ -268,11 +259,39 @@ StartSessionHandler::ValidateTraceConfiguration(const json &trace_config) {
       }
     }
 
-    // Optional: namespace field (for native traces)
+    // Validate namespace field if present (for native traces)
     if (trace_item.contains("namespace")) {
       if (!trace_item["namespace"].is_string()) {
         return BadArgument("Trace item " + std::to_string(i) +
                            " 'namespace' must be a string");
+      }
+    }
+
+    // Type-specific required field validation
+    if (type == "java") {
+      // Java tracing requires both class and method
+      if (!trace_item.contains("class") ||
+          trace_item["class"].get<std::string>().empty()) {
+        return BadArgument("Trace item " + std::to_string(i) +
+                           " of type 'java' requires a non-empty 'class' field");
+      }
+
+      if (!trace_item.contains("method") ||
+          trace_item["method"].get<std::string>().empty()) {
+        return BadArgument("Trace item " + std::to_string(i) +
+                           " of type 'java' requires a non-empty 'method' field");
+      }
+    } else {
+      // Native tracing requires at least one of namespace, class, or method
+      std::string ns = trace_item.value("namespace", "");
+      std::string cls = trace_item.value("class", "");
+      std::string method = trace_item.value("method", "");
+
+      if (ns.empty() && cls.empty() && method.empty()) {
+        return BadArgument(
+            "Trace item " + std::to_string(i) +
+            " of type 'native' requires at least one of "
+            "'namespace', 'class', or 'method' to be non-empty");
       }
     }
 

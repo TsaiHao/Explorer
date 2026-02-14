@@ -372,9 +372,9 @@ Status ApiSchema::ValidateTraceConfig(const json &trace_config) {
                            " missing 'class' field");
       }
     } else if (type == "native") {
-      if (!trace_item.contains("class")) {
+      if (!trace_item.contains("method")) {
         return BadArgument("Native trace item " + std::to_string(i) +
-                           " missing 'class' field");
+                           " missing 'method' field");
       }
     }
   }

@@ -21,3 +21,11 @@
 #endif
 
 #define THROW
+
+#if TARGET_ANDROID
+#define TEMP_PATH "/data/local/tmp"
+#elif TARGET_VEGA
+#define TEMP_PATH "/tmp"
+#else
+#define TEMP_PATH "/tmp"
+#endif

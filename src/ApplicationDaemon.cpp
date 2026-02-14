@@ -46,9 +46,11 @@ void InitLogger() {
   auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   sinks.push_back(stdout_sink);
 
+#if TARGET_ANDROID
   auto android_sink =
       std::make_shared<spdlog::sinks::android_sink_mt>("ExplorerDaemon", true);
   sinks.push_back(android_sink);
+#endif
 
   std::string format_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%P:%t] [%l] %v";
 

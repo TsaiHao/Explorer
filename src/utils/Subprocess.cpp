@@ -7,6 +7,11 @@
 #include "utils/Status.h"
 
 #include <cstring>
+#include <sstream>
+#include <string>
+#include <array>
+#include <vector>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>

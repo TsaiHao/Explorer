@@ -183,8 +183,9 @@ void RequestMiddleware::ApplySecurityHeaders(
   res.set("Referrer-Policy", "strict-origin-when-cross-origin");
 }
 
-void RequestMiddleware::LogRequestStart(Poco::Net::HTTPServerRequest &_,
+void RequestMiddleware::LogRequestStart(Poco::Net::HTTPServerRequest &req,
                                         const utils::RequestContext &context) {
+  (void)req; // Unused parameter
   LOGI("START REQUEST: {} {} from {} (Request ID: {})", context.method,
        context.endpoint, context.client_ip, context.request_id);
 }

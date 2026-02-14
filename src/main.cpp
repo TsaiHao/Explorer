@@ -16,6 +16,7 @@
 #include "ApplicationDaemon.h"
 #include "utils/Log.h"
 #include "utils/System.h"
+#include "utils/Macros.h"
 #include "version.h"
 
 namespace {
@@ -26,9 +27,9 @@ struct MainConfig {
   bool foreground = false;                    // Run in foreground (don't fork)
   std::string host = "0.0.0.0";               // Bind host
   int port = 34512;                           // Default daemon port
-  std::string config_dir = "/data/local/tmp"; // Configuration directory
+  std::string config_dir = TEMP_PATH; // Configuration directory
   std::string pid_file_path =
-      "/data/local/tmp/explorer.pid"; // PID file location
+      std::string(TEMP_PATH) + "/explorer.pid"; // PID file location
   std::string config_file = "";       // Config file path (triggers legacy mode)
   bool legacy_mode = false;           // Use legacy Application class
   bool show_help = false;             // Show help message

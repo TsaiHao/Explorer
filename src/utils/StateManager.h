@@ -60,7 +60,7 @@ public:
   };
 
   explicit StateManager(const std::string &state_file_path =
-                            "/data/local/tmp/explorer_state.json");
+                            std::string(TEMP_PATH) + "/explorer_state.json");
   ~StateManager();
 
   DISABLE_COPY_AND_MOVE(StateManager);

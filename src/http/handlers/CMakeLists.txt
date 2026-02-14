@@ -1,5 +1,5 @@
 # Session command handlers
-add_library(exp_http_handlers STATIC
+target_sources(exp_http PRIVATE 
     StartSessionHandler.cpp
     StopSessionHandler.cpp
     StatusHandler.cpp
@@ -11,9 +11,4 @@ add_library(exp_http_handlers STATIC
     DrainMessagesHandler.cpp
 )
 
-target_link_libraries(exp_http_handlers
-    COMMON_SETTINGS
-    DEPS
-)
-
-target_include_directories(exp_http_handlers PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(exp_http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -31,6 +31,27 @@
                 "ENABLE_DEBUG": "OFF",
                 "TARGET_ANDROID": "ON"
             }
+        },
+        {
+            "name": "vega-debug",
+            "displayName": "Linux armhf Debug Build",
+            "description": "Build for Linux armhf (GLIBC) using system toolchain",
+            "binaryDir": "${sourceDir}/vega_debug",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_SYSTEM_NAME": "Linux",
+                "CMAKE_SYSTEM_PROCESSOR": "arm",
+                "CMAKE_C_COMPILER": "arm-linux-gnueabihf-gcc",
+                "CMAKE_CXX_COMPILER": "arm-linux-gnueabihf-g++",
+                "CMAKE_CXX_STANDARD": "17",
+                "TARGET_ANDROID": "OFF",
+                "TARGET_VEGA": "ON",
+                "ENABLE_DEBUG": "ON",
+                "STATIC_LIBSTDCPP": "ON"
+            },
+            "environment": {
+                "CXXFLAGS": "-march=armv7-a -mfloat-abi=hard -mfpu=neon" 
+            }
         }
     ]
 }

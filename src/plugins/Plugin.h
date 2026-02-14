@@ -2,7 +2,6 @@
 #include "nlohmann/json.hpp"
 #include "utils/Status.h"
 
-#include <expected>
 #include <memory>
 
 namespace frida {

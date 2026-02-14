@@ -46,6 +46,9 @@ endif ()
 
 set(POCO_MINIMAL_BUILD FALSE)
 set(BUILD_SHARED_LIBS FALSE)
+set(ENABLE_REDIS FALSE)
+set(ENABLE_PROMETHEUS FALSE)
+set(ENABLE_ZIP FALSE)
 add_subdirectory(poco)
 target_link_libraries(DEPS INTERFACE Poco::Net)
 

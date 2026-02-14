@@ -29,7 +29,10 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(TARGET_ANDROID ON CACHE BOOL "Compile for Android platform")
+set(TARGET_VEGA OFF CACHE BOOL "Compile for Vega platform")
 set(ENABLE_DEBUG OFF CACHE BOOL "Enable debug logs")
+
+set(STATIC_LIBSTDCPP OFF CACHE BOOL "Link libstdc++ statically")
 
 option(ENABLE_SQLITE "Enable features that require sqlite(data output). Enabling it would build sqlite3" OFF)
 
@@ -41,6 +44,10 @@ set(LOCAL_CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(${LOCAL_CMAKE_MODULE_PATH}/Dependencies.cmake)
 include(${LOCAL_CMAKE_MODULE_PATH}/EmbedJs.cmake)
 include(${LOCAL_CMAKE_MODULE_PATH}/LocalFridaFinder.cmake)
+
+if (STATIC_LIBSTDCPP)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+endif ()
 
 # Fetch third-party dependencies at configure time
 install_dependencies()
@@ -70,6 +77,8 @@ if (TARGET_ANDROID)
         $<$<COMPILE_LANG_AND_ID:CXX,Clang>:-Wno-unused-command-line-argument>
     )
     target_link_libraries(COMMON_SETTINGS INTERFACE log)
+elseif (TARGET_VEGA)
+    target_compile_definitions(COMMON_SETTINGS INTERFACE TARGET_VEGA)
 endif ()
 
 add_subdirectory(third_party)

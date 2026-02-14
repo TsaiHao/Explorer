@@ -13,3 +13,5 @@ target_sources(exp_frida PRIVATE
     Session.h
     Session.cpp
 )
+
+target_link_libraries(exp_frida PRIVATE exp_frida_plugins)
