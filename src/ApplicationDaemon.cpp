@@ -467,6 +467,11 @@ void ApplicationDaemon::Impl::HandleArgs(
   constexpr std::string_view kPortOption = "--port";
   constexpr std::string_view kHostOption = "--host";
   constexpr std::string_view kDaemonOption = "--daemon";
+  constexpr std::string_view kForegroundOption = "--foreground";
+  constexpr std::string_view kLegacyOption = "--legacy";
+  constexpr std::string_view kConfigOption = "--config";
+  constexpr std::string_view kConfigDirOption = "--config-dir";
+  constexpr std::string_view kPidFileOption = "--pid-file";
 
   for (int i = 1; i < static_cast<int>(args.size()); ++i) {
     const auto &arg = args[i];
@@ -475,11 +480,16 @@ void ApplicationDaemon::Impl::HandleArgs(
       std::cout
           << "Usage: explorer [options]\n"
              "Options:\n"
-             "  --help         Show this help message\n"
-             "  --version      Show version information\n"
-             "  --daemon       Run in daemon mode (default)\n"
-             "  --host HOST    Bind to specific host (default: 0.0.0.0)\n"
-             "  --port PORT    Listen on specific port (default: 34512)\n";
+             "  --help            Show this help message\n"
+             "  --version         Show version information\n"
+             "  --daemon          Run in daemon mode (default)\n"
+             "  --foreground      Run daemon in foreground (don't fork)\n"
+             "  --legacy          Run in legacy config-file mode\n"
+             "  --config FILE     Run with config file (legacy mode)\n"
+             "  --host HOST       Bind to specific host (default: 0.0.0.0)\n"
+             "  --port PORT       Listen on specific port (default: 34512)\n"
+             "  --config-dir DIR  Configuration directory\n"
+             "  --pid-file PATH   PID file location\n";
       exit(0);
     } else if (arg == kVersionOption) {
       std::cout << "Explorer Daemon version " << VERSION_STRING << "\n";
@@ -499,6 +509,19 @@ void ApplicationDaemon::Impl::HandleArgs(
       }
     } else if (arg == kHostOption && i + 1 < static_cast<int>(args.size())) {
       m_host = std::string(args[++i]);
+    } else if (arg == kForegroundOption) {
+      // Foreground flag is handled by main.cpp, just ignore it here
+    } else if (arg == kLegacyOption) {
+      // Legacy mode is handled by main.cpp, just ignore it here
+    } else if (arg == kConfigOption && i + 1 < static_cast<int>(args.size())) {
+      // Config file option is handled by main.cpp, skip the argument and its value
+      ++i;
+    } else if (arg == kConfigDirOption && i + 1 < static_cast<int>(args.size())) {
+      // Config directory option is handled by main.cpp, skip the argument and its value
+      ++i;
+    } else if (arg == kPidFileOption && i + 1 < static_cast<int>(args.size())) {
+      // PID file option is handled by main.cpp, skip the argument and its value
+      ++i;
     } else {
       std::cerr << "Unknown argument: " << arg << "\n";
       exit(1);

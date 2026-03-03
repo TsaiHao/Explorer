@@ -21,7 +21,12 @@ constexpr std::string_view kRpcResultError = "error";
 #include "java_runtime.js.h"
 
 static bool LoadJavaRuntimeIfNeeded(std::string_view source) {
+  #ifdef TARGET_ANDROID
   return source.find("Java.") != std::string_view::npos;
+  #else
+  (void)source;
+  return false;
+  #endif
 }
 
 namespace frida {

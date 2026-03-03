@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 # Version definitions (single source of truth)
 # ---------------------------------------------------------------------------
-set(DEP_FRIDA_VERSION  "17.0.6")
+set(DEP_FRIDA_VERSION  "17.7.3")
 set(DEP_SQLITE_VERSION "3500100")
 set(DEP_SQLITE_YEAR    "2025")
 set(DEP_SPDLOG_VERSION "1.15.3")

@@ -42,18 +42,9 @@ Status::~Status() = default;
 
 bool Status::Ok() const { return m_code == StatusCode::kOk; }
 
-std::string_view Status::Message() const {
+std::string Status::Message() const {
 #ifdef EXP_DEBUG
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wreturn-stack-address"
-  // NOLINTBEGIN(bugprone-dangling-handle)
   return m_message.empty() ? "No message" : m_message;
-  // NOLINTEND(bugprone-dangling-handle)
-#pragma clang diagnostic pop
-#else
-  return m_message.empty() ? "No message" : m_message;
-#endif
 #else
   return "No message";
 #endif

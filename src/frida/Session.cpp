@@ -23,7 +23,10 @@ Session::~Session() {
     Detach();
   }
   if (LIKELY(m_session != nullptr)) {
-    frida_unref(m_session);
+    // Add defensive programming - ensure we only unref once
+    FridaSession* session_to_unref = m_session;
+    m_session = nullptr;  // Clear pointer before unref to prevent double-free
+    frida_unref(session_to_unref);
   }
 }
 

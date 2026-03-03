@@ -23,7 +23,7 @@ public:
 
   bool Ok() const;
 
-  std::string_view Message() const;
+  std::string Message() const;
 
   std::string_view CodeString() const;
 

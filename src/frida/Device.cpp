@@ -188,9 +188,16 @@ Status Device::Attach(const utils::ProcessInfo &proc_info) {
                                            nullptr, &error);
   if (error != nullptr) {
     LOGE("Error attaching frida device: {}", error->message);
-    frida_unref(session);
-
+    // Don't unref session when there's an error - it's invalid!
+    // According to FRIDA API, session pointer is undefined on error
+    g_error_free(error);
     return SdkFailure("frida attach api failed");
+  }
+
+  // Validate session pointer before using it
+  if (session == nullptr) {
+    LOGE("frida_device_attach_sync returned NULL session despite no error");
+    return SdkFailure("Invalid session returned from FRIDA");
   }
 
   m_sessions[proc_info] = std::make_unique<Session>(proc_info.pid, session);
