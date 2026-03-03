@@ -17,6 +17,8 @@ namespace http {
   class StatusHandler : public RequestHandler
   class ListSessionsHandler : public RequestHandler
   class DrainMessagesHandler : public RequestHandler
+  class LoadScriptHandler : public RequestHandler
+  class UnloadScriptHandler : public RequestHandler
   class SessionDispatcherHandler : public RequestHandler  // For backward compatibility
 }
 ```
@@ -31,6 +33,8 @@ The daemon exposes both specialized and generic endpoints:
 - `POST /api/v1/session/status` → `StatusHandler`
 - `POST /api/v1/session/list` → `ListSessionsHandler`
 - `POST /api/v1/session/messages` → `DrainMessagesHandler`
+- `POST /api/v1/session/script/load` → `LoadScriptHandler`
+- `POST /api/v1/session/script/unload` → `UnloadScriptHandler`
 
 **Generic Endpoint** (Action-based routing):
 - `POST /api/v1/session` → `SessionDispatcherHandler` (routes by "action" field)
@@ -195,7 +199,77 @@ Status ValidateDrainRequest(const json& data);
 - When the buffer is full, the oldest message is dropped and `dropped_count` increments
 - Draining clears the buffer and resets the dropped counter
 
-### 6. SessionDispatcherHandler
+### 6. LoadScriptHandler
+
+**Purpose**: Dynamically loads a script into an existing session at runtime.
+
+**Key Features**:
+- Supports both file-based scripts and inline script source
+- Auto-generates names for inline scripts using timestamps
+- Validates mutual exclusivity of `script` and `script_source`
+- Integration with `ApplicationDaemon::LoadScript()`
+
+**Validation**:
+```cpp
+// Via ApiSchema::ValidateLoadScriptRequest(data)
+// Requires: data.session (non-empty string)
+// Requires: exactly one of data.script or data.script_source
+```
+
+**Example Valid Requests**:
+```json
+{
+  "action": "load_script",
+  "data": {
+    "session": "12345",
+    "script": "/data/local/tmp/debug.js"
+  }
+}
+```
+
+```json
+{
+  "action": "load_script",
+  "data": {
+    "session": "12345",
+    "script_source": "console.log('injected');"
+  }
+}
+```
+
+**Response Data**:
+- `session_id`: The session the script was loaded into
+- `pid`: Target process PID
+- `script_name`: The name assigned to the loaded script
+
+### 7. UnloadScriptHandler
+
+**Purpose**: Removes a previously loaded script from an existing session.
+
+**Key Features**:
+- Identifies scripts by name (file path or auto-generated inline name)
+- Unloads the script from the FRIDA agent
+- Integration with `ApplicationDaemon::UnloadScript()`
+
+**Validation**:
+```cpp
+// Via ApiSchema::ValidateUnloadScriptRequest(data)
+// Requires: data.session (non-empty string)
+// Requires: data.script (non-empty string)
+```
+
+**Example Valid Request**:
+```json
+{
+  "action": "unload_script",
+  "data": {
+    "session": "12345",
+    "script": "/data/local/tmp/debug.js"
+  }
+}
+```
+
+### 8. SessionDispatcherHandler
 
 **Purpose**: Provides backward compatibility for the generic `/api/v1/session` endpoint.
 
@@ -268,6 +342,8 @@ void ApplicationDaemon::Impl::SetupHttpServer() {
   auto status_handler = std::make_shared<http::StatusHandler>(daemon_instance);
   auto list_handler = std::make_shared<http::ListSessionsHandler>(daemon_instance);
   auto drain_handler = std::make_shared<http::DrainMessagesHandler>(daemon_instance);
+  auto load_script_handler = std::make_shared<http::LoadScriptHandler>(daemon_instance);
+  auto unload_script_handler = std::make_shared<http::UnloadScriptHandler>(daemon_instance);
 
   // Register specialized endpoints
   m_http_server->GetRouter().RegisterPost("/api/v1/session/start", start_handler);
@@ -275,6 +351,8 @@ void ApplicationDaemon::Impl::SetupHttpServer() {
   m_http_server->GetRouter().RegisterPost("/api/v1/session/status", status_handler);
   m_http_server->GetRouter().RegisterPost("/api/v1/session/list", list_handler);
   m_http_server->GetRouter().RegisterPost("/api/v1/session/messages", drain_handler);
+  m_http_server->GetRouter().RegisterPost("/api/v1/session/script/load", load_script_handler);
+  m_http_server->GetRouter().RegisterPost("/api/v1/session/script/unload", unload_script_handler);
 
   // Register generic endpoint with dispatcher
   auto dispatcher_handler = std::make_shared<http::SessionDispatcherHandler>(daemon_instance);
@@ -301,6 +379,12 @@ auto result = m_daemon->ListSessions(filter);
 
 // DrainMessagesHandler
 auto result = m_daemon->DrainSessionMessages(session_id);
+
+// LoadScriptHandler
+auto result = m_daemon->LoadScript(session_id, script_name, script_source);
+
+// UnloadScriptHandler
+auto status = m_daemon->UnloadScript(session_id, script_name);
 ```
 
 ## Benefits of Specialized Handlers

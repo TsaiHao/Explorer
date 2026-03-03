@@ -9,7 +9,9 @@
 #include "http/handlers/StatsHandler.h"
 #include "http/handlers/StatusHandler.h"
 #include "http/handlers/DrainMessagesHandler.h"
+#include "http/handlers/LoadScriptHandler.h"
 #include "http/handlers/StopSessionHandler.h"
+#include "http/handlers/UnloadScriptHandler.h"
 #include "utils/Log.h"
 #include "utils/Status.h"
 #include "utils/System.h"
@@ -98,6 +100,11 @@ public:
   Result<json, Status> ListSessions(const json &filter);
 
   Result<json, Status> DrainSessionMessages(const std::string &session_id);
+  Result<json, Status> LoadScript(const std::string &session_id,
+                                  const std::string &name,
+                                  const std::string &source);
+  Status UnloadScript(const std::string &session_id,
+                      const std::string &script_name);
 
   // State persistence methods
   Result<json, Status> GetDaemonStats();
@@ -334,6 +341,34 @@ ApplicationDaemon::Impl::DrainSessionMessages(const std::string &session_id) {
 }
 
 Result<json, Status>
+ApplicationDaemon::Impl::LoadScript(const std::string &session_id,
+                                    const std::string &name,
+                                    const std::string &source) {
+  LOGI("Loading script '{}' into session: {}", name, session_id);
+
+  try {
+    pid_t pid = std::stoi(session_id);
+    return m_device->LoadScript(pid, name, source);
+  } catch (const std::exception &e) {
+    LOGE("Invalid session ID format: {}", session_id);
+    return Err<Status>(BadArgument("Invalid session ID format"));
+  }
+}
+
+Status ApplicationDaemon::Impl::UnloadScript(const std::string &session_id,
+                                             const std::string &script_name) {
+  LOGI("Unloading script '{}' from session: {}", script_name, session_id);
+
+  try {
+    pid_t pid = std::stoi(session_id);
+    return m_device->UnloadScript(pid, script_name);
+  } catch (const std::exception &e) {
+    LOGE("Invalid session ID format: {}", session_id);
+    return BadArgument("Invalid session ID format");
+  }
+}
+
+Result<json, Status>
 ApplicationDaemon::Impl::GetSessionStatus(const std::string &session_id) {
   if (session_id.empty()) {
     // Return global daemon status
@@ -507,6 +542,10 @@ void ApplicationDaemon::Impl::SetupHttpServer() {
   auto stats_handler = std::make_shared<http::StatsHandler>(daemon_instance);
   auto drain_handler =
       std::make_shared<http::DrainMessagesHandler>(daemon_instance);
+  auto load_script_handler =
+      std::make_shared<http::LoadScriptHandler>(daemon_instance);
+  auto unload_script_handler =
+      std::make_shared<http::UnloadScriptHandler>(daemon_instance);
 
   // Register monitoring and health check handlers
   auto health_handler = std::make_shared<http::HealthHandler>(daemon_instance);
@@ -522,6 +561,10 @@ void ApplicationDaemon::Impl::SetupHttpServer() {
   m_http_server->GetRouter().RegisterPost("/api/v1/session/list", list_handler);
   m_http_server->GetRouter().RegisterPost("/api/v1/session/messages",
                                           drain_handler);
+  m_http_server->GetRouter().RegisterPost("/api/v1/session/script/load",
+                                          load_script_handler);
+  m_http_server->GetRouter().RegisterPost("/api/v1/session/script/unload",
+                                          unload_script_handler);
 
   // Register state management endpoints
   m_http_server->GetRouter().RegisterGet("/api/v1/daemon/stats", stats_handler);
@@ -548,6 +591,8 @@ void ApplicationDaemon::Impl::SetupHttpServer() {
   LOGI("  POST /api/v1/session/status - Query session/global status");
   LOGI("  POST /api/v1/session/list - List active sessions");
   LOGI("  POST /api/v1/session/messages - Drain cached messages");
+  LOGI("  POST /api/v1/session/script/load - Load script into session");
+  LOGI("  POST /api/v1/session/script/unload - Unload script from session");
   LOGI("  GET  /api/v1/daemon/stats - Get daemon statistics");
   LOGI("  GET  /api/v1/daemon/history - Get session history");
   LOGI("  GET  /health - Health check endpoint");
@@ -589,6 +634,18 @@ Status ApplicationDaemon::StopSession(const std::string &session_id) {
 Result<json, Status>
 ApplicationDaemon::DrainSessionMessages(const std::string &session_id) {
   return m_impl->DrainSessionMessages(session_id);
+}
+
+Result<json, Status>
+ApplicationDaemon::LoadScript(const std::string &session_id,
+                              const std::string &name,
+                              const std::string &source) {
+  return m_impl->LoadScript(session_id, name, source);
+}
+
+Status ApplicationDaemon::UnloadScript(const std::string &session_id,
+                                       const std::string &script_name) {
+  return m_impl->UnloadScript(session_id, script_name);
 }
 
 Result<json, Status>

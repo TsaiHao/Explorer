@@ -14,7 +14,7 @@ All API requests follow this structure:
 
 ```json
 {
-  "action": "start|stop|status|list|drain",
+  "action": "start|stop|status|list|drain|load_script|unload_script",
   "data": {
     // Command-specific parameters
   }
@@ -280,6 +280,85 @@ Retrieve and clear cached script messages from a session.
 - The buffer capacity is 1000 messages per session. When exceeded, oldest messages are dropped and counted in `dropped_count`.
 - Only JSON payloads are cached; binary data (e.g., from SSL captures) is not included.
 
+### 6. Load Script
+
+Dynamically load a script into an existing session.
+
+**Request**:
+```json
+{
+  "action": "load_script",
+  "data": {
+    "session": "12345",
+    "script": "/data/local/tmp/debug.js",
+    "script_source": "console.log('hello');"
+  }
+}
+```
+
+**Request Fields**:
+- `action` (string, required): Must be "load_script"
+- `data.session` (string, required): Session ID (PID as string)
+- `data.script` (string, conditional): File path to script on device (required if no script_source)
+- `data.script_source` (string, conditional): Inline script source code (required if no script)
+
+Either `script` or `script_source` must be provided, but not both.
+
+**Success Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "session_id": "12345",
+    "pid": 12345,
+    "script_name": "/data/local/tmp/debug.js"
+  },
+  "message": "Script loaded successfully"
+}
+```
+
+**Notes**:
+- For file-based scripts, `script_name` is the file path.
+- For inline scripts, `script_name` is auto-generated as `inline_script_<timestamp>`.
+- The loaded script's messages are automatically cached via the session's MessageCache.
+- Loading a script with a duplicate name returns an error.
+
+### 7. Unload Script
+
+Remove a previously loaded script from an existing session.
+
+**Request**:
+```json
+{
+  "action": "unload_script",
+  "data": {
+    "session": "12345",
+    "script": "/data/local/tmp/debug.js"
+  }
+}
+```
+
+**Request Fields**:
+- `action` (string, required): Must be "unload_script"
+- `data.session` (string, required): Session ID (PID as string)
+- `data.script` (string, required): Script name to unload (file path or auto-generated inline name)
+
+**Success Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "session_id": "12345",
+    "script": "/data/local/tmp/debug.js"
+  },
+  "message": "Script unloaded successfully"
+}
+```
+
+**Notes**:
+- The script is unloaded and removed from the session.
+- Returns NOT_FOUND if the script name doesn't exist in the session.
+
 ## Error Codes
 
 | HTTP Code | Error Code | Description |
@@ -345,6 +424,45 @@ curl -X POST http://0.0.0.0:34512/api/v1/session/messages \\
     "action": "drain",
     "data": {
       "session": "12345"
+    }
+  }'
+```
+
+### Load Script into Session
+```bash
+curl -X POST http://0.0.0.0:34512/api/v1/session/script/load \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "action": "load_script",
+    "data": {
+      "session": "12345",
+      "script": "/data/local/tmp/debug.js"
+    }
+  }'
+```
+
+### Load Inline Script
+```bash
+curl -X POST http://0.0.0.0:34512/api/v1/session/script/load \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "action": "load_script",
+    "data": {
+      "session": "12345",
+      "script_source": "console.log(\"hello from injected script\")"
+    }
+  }'
+```
+
+### Unload Script
+```bash
+curl -X POST http://0.0.0.0:34512/api/v1/session/script/unload \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "action": "unload_script",
+    "data": {
+      "session": "12345",
+      "script": "/data/local/tmp/debug.js"
     }
   }'
 ```

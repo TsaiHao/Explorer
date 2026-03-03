@@ -15,11 +15,13 @@ using json = nlohmann::json;
  * API command types supported by the daemon.
  */
 enum class ApiCommand {
-  kStart,  // Start a new session
-  kStop,   // Stop an existing session
-  kStatus, // Get session status
-  kList,   // List all sessions
-  kDrain   // Drain cached messages from a session
+  kStart,        // Start a new session
+  kStop,         // Stop an existing session
+  kStatus,       // Get session status
+  kList,         // List all sessions
+  kDrain,        // Drain cached messages from a session
+  kLoadScript,   // Load a script into an existing session
+  kUnloadScript  // Unload a script from an existing session
 };
 
 /**
@@ -82,6 +84,20 @@ public:
    * @return Status indicating validation result
    */
   static Status ValidateDrainRequest(const json &data);
+
+  /**
+   * Validate load script request data.
+   * @param data The data section of the request
+   * @return Status indicating validation result
+   */
+  static Status ValidateLoadScriptRequest(const json &data);
+
+  /**
+   * Validate unload script request data.
+   * @param data The data section of the request
+   * @return Status indicating validation result
+   */
+  static Status ValidateUnloadScriptRequest(const json &data);
 
   /**
    * Create a standard success response.

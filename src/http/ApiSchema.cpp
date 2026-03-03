@@ -14,6 +14,10 @@ Result<ApiCommand, Status> ApiSchema::ParseCommand(const std::string &action) {
     return Ok<ApiCommand>(ApiCommand::kList);
   } else if (action == "drain") {
     return Ok<ApiCommand>(ApiCommand::kDrain);
+  } else if (action == "load_script") {
+    return Ok<ApiCommand>(ApiCommand::kLoadScript);
+  } else if (action == "unload_script") {
+    return Ok<ApiCommand>(ApiCommand::kUnloadScript);
   } else {
     return Err<Status>(BadArgument("Unknown action: " + action));
   }
@@ -31,6 +35,10 @@ std::string ApiSchema::CommandToString(ApiCommand command) {
     return "list";
   case ApiCommand::kDrain:
     return "drain";
+  case ApiCommand::kLoadScript:
+    return "load_script";
+  case ApiCommand::kUnloadScript:
+    return "unload_script";
   }
   return "unknown";
 }
@@ -85,6 +93,10 @@ Status ApiSchema::ValidateRequest(const json &request_json) {
     return ValidateListRequest(data);
   case ApiCommand::kDrain:
     return ValidateDrainRequest(data);
+  case ApiCommand::kLoadScript:
+    return ValidateLoadScriptRequest(data);
+  case ApiCommand::kUnloadScript:
+    return ValidateUnloadScriptRequest(data);
   }
 
   return Ok();
@@ -249,6 +261,99 @@ Status ApiSchema::ValidateDrainRequest(const json &data) {
   return Ok();
 }
 
+Status ApiSchema::ValidateLoadScriptRequest(const json &data) {
+  // Required: session identifier
+  if (!data.contains("session")) {
+    return BadArgument("Load script request requires 'session' field");
+  }
+
+  auto session_status =
+      CheckFieldType(data["session"], json::value_t::string, "session");
+  if (!session_status.Ok()) {
+    return session_status;
+  }
+
+  std::string session = data["session"];
+  if (session.empty()) {
+    return BadArgument("Field 'session' cannot be empty");
+  }
+
+  // Require either "script" (file path) or "script_source" (inline), not both
+  bool has_script = data.contains("script");
+  bool has_source = data.contains("script_source");
+
+  if (!has_script && !has_source) {
+    return BadArgument(
+        "Load script request requires either 'script' or 'script_source'");
+  }
+
+  if (has_script && has_source) {
+    return BadArgument(
+        "Load script request requires either 'script' or 'script_source', "
+        "not both");
+  }
+
+  if (has_script) {
+    auto script_status =
+        CheckFieldType(data["script"], json::value_t::string, "script");
+    if (!script_status.Ok()) {
+      return script_status;
+    }
+    if (data["script"].get<std::string>().empty()) {
+      return BadArgument("Field 'script' cannot be empty");
+    }
+  }
+
+  if (has_source) {
+    auto source_status = CheckFieldType(data["script_source"],
+                                        json::value_t::string, "script_source");
+    if (!source_status.Ok()) {
+      return source_status;
+    }
+    if (data["script_source"].get<std::string>().empty()) {
+      return BadArgument("Field 'script_source' cannot be empty");
+    }
+  }
+
+  return Ok();
+}
+
+Status ApiSchema::ValidateUnloadScriptRequest(const json &data) {
+  // Required: session identifier
+  if (!data.contains("session")) {
+    return BadArgument("Unload script request requires 'session' field");
+  }
+
+  auto session_status =
+      CheckFieldType(data["session"], json::value_t::string, "session");
+  if (!session_status.Ok()) {
+    return session_status;
+  }
+
+  std::string session = data["session"];
+  if (session.empty()) {
+    return BadArgument("Field 'session' cannot be empty");
+  }
+
+  // Required: script name to unload
+  if (!data.contains("script")) {
+    return BadArgument("Unload script request requires 'script' field");
+  }
+
+  auto script_status =
+      CheckFieldType(data["script"], json::value_t::string, "script");
+  if (!script_status.Ok()) {
+    return script_status;
+  }
+
+  std::string script = data["script"];
+  if (script.empty()) {
+    return BadArgument("Field 'script' cannot be empty");
+  }
+
+  return Ok();
+}
+
 json ApiSchema::CreateSuccessResponse(const json &data,
                                       const std::string &message) {
   json response = {{"status", "success"}, {"data", data}};
@@ -284,7 +389,8 @@ json ApiSchema::GetRequestSchema() {
               {"properties",
                {{"action",
                  {{"type", "string"},
-                  {"enum", {"start", "stop", "status", "list", "drain"}},
+                  {"enum", {"start", "stop", "status", "list", "drain",
+                           "load_script", "unload_script"}},
                   {"description", "The command to execute"}}},
                 {"data",
                  {{"type", "object"},
@@ -306,7 +412,17 @@ json ApiSchema::GetRequestExamples() {
       {"get_status", {{"action", "status"}, {"data", {{"session", "12345"}}}}},
       {"list_sessions", {{"action", "list"}, {"data", json::object()}}},
       {"drain_messages",
-       {{"action", "drain"}, {"data", {{"session", "12345"}}}}}};
+       {{"action", "drain"}, {"data", {{"session", "12345"}}}}},
+      {"load_script",
+       {{"action", "load_script"},
+        {"data",
+         {{"session", "12345"},
+          {"script", "/data/local/tmp/debug.js"}}}}},
+      {"unload_script",
+       {{"action", "unload_script"},
+        {"data",
+         {{"session", "12345"},
+          {"script", "/data/local/tmp/debug.js"}}}}}};
 }
 
 Status ApiSchema::CheckFieldType(const json &value, json::value_t expected_type,

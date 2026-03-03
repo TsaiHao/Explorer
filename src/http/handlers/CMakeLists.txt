@@ -9,6 +9,8 @@ target_sources(exp_http PRIVATE
     HealthHandler.cpp
     MetricsHandler.cpp
     DrainMessagesHandler.cpp
+    LoadScriptHandler.cpp
+    UnloadScriptHandler.cpp
 )
 
 target_include_directories(exp_http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

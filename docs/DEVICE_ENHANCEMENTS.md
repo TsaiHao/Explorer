@@ -120,7 +120,45 @@ Result<nlohmann::json, Status> DrainSessionMessages(pid_t target_pid);
 }
 ```
 
-### 6. GetSessionStatistics()
+### 6. LoadScript(pid, name, source)
+```cpp
+Result<nlohmann::json, Status> LoadScript(pid_t target_pid,
+                                          const std::string& name,
+                                          const std::string& source);
+```
+**Purpose**: Dynamically load a script into an existing session at runtime.
+
+**Features**:
+- Supports file-based scripts (source is empty, name is file path — reads from disk)
+- Supports inline scripts (source provided directly)
+- Automatically registers the MessageCache callback for the new script
+- Thread-safe operation (acquires `m_sessions_mutex`)
+
+**Returns**:
+- Session ID and PID
+- Script name assigned to the loaded script
+
+**Example Response**:
+```json
+{
+  "session_id": "12345",
+  "pid": 12345,
+  "script_name": "/data/local/tmp/debug.js"
+}
+```
+
+### 7. UnloadScript(pid, script_name)
+```cpp
+Status UnloadScript(pid_t target_pid, const std::string& script_name);
+```
+**Purpose**: Remove a previously loaded script from an existing session.
+
+**Features**:
+- Unloads script via `Session::RemoveScript()` which calls `Script::Unload()`
+- Removes script from session's script map
+- Thread-safe operation (acquires `m_sessions_mutex`)
+
+### 8. GetSessionStatistics()
 ```cpp
 nlohmann::json GetSessionStatistics() const;
 ```
@@ -201,6 +239,21 @@ Result<json, Status> ApplicationDaemon::ListSessions(const json& filter) {
 Result<json, Status> ApplicationDaemon::DrainSessionMessages(const std::string& session_id) {
   pid_t pid = std::stoi(session_id);
   return m_device->DrainSessionMessages(pid);
+}
+
+// Script loading
+Result<json, Status> ApplicationDaemon::LoadScript(const std::string& session_id,
+                                                   const std::string& name,
+                                                   const std::string& source) {
+  pid_t pid = std::stoi(session_id);
+  return m_device->LoadScript(pid, name, source);
+}
+
+// Script unloading
+Status ApplicationDaemon::UnloadScript(const std::string& session_id,
+                                       const std::string& script_name) {
+  pid_t pid = std::stoi(session_id);
+  return m_device->UnloadScript(pid, script_name);
 }
 ```
 

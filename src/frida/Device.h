@@ -87,6 +87,25 @@ public:
   Result<nlohmann::json, Status> DrainSessionMessages(pid_t target_pid);
 
   /**
+   * Load a script into an existing session.
+   * @param target_pid The PID of the session
+   * @param name The script name (file path or generated inline name)
+   * @param source The script source code (empty if file-based, read from disk)
+   * @return JSON with loaded script info, or error
+   */
+  Result<nlohmann::json, Status> LoadScript(pid_t target_pid,
+                                            const std::string &name,
+                                            const std::string &source);
+
+  /**
+   * Unload a script from an existing session.
+   * @param target_pid The PID of the session
+   * @param script_name The name of the script to unload
+   * @return Status indicating success/failure
+   */
+  Status UnloadScript(pid_t target_pid, const std::string &script_name);
+
+  /**
    * Get session statistics.
    * @return JSON object with session statistics
    */

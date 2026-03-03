@@ -429,6 +429,127 @@ curl -X POST http://192.168.1.100:34512/api/v1/session/messages \
 - If no messages have been received, the response contains an empty `messages` array with `message_count: 0`.
 - Use `dropped_count` to detect if your drain polling interval is too slow for the message volume.
 
+### Load Script
+
+**Endpoint**: `POST /api/v1/session/script/load`
+
+**Description**: Dynamically loads a script into an existing session. Supports both file-based scripts (read from device filesystem) and inline script source code. The script is created, loaded, and its messages are automatically cached via the session's MessageCache.
+
+**Request Body (file-based)**:
+```json
+{
+  "action": "load_script",
+  "data": {
+    "session": "12345",
+    "script": "/data/local/tmp/debug.js"
+  }
+}
+```
+
+**Request Body (inline)**:
+```json
+{
+  "action": "load_script",
+  "data": {
+    "session": "12345",
+    "script_source": "console.log('Hello from injected script');"
+  }
+}
+```
+
+**Request Fields**:
+- `action` (string, required): Must be "load_script"
+- `data` (object, required): Load script parameters
+  - `session` (string, required): Session ID (PID as string)
+  - `script` (string, conditional): File path to script on device (required if no script_source)
+  - `script_source` (string, conditional): Inline script source code (required if no script)
+
+Either `script` or `script_source` must be provided, but not both.
+
+**Success Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "session_id": "12345",
+    "pid": 12345,
+    "script_name": "/data/local/tmp/debug.js"
+  },
+  "message": "Script loaded successfully"
+}
+```
+
+**Example**:
+```bash
+curl -X POST http://192.168.1.100:34512/api/v1/session/script/load \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "load_script",
+    "data": {
+      "session": "29851",
+      "script_source": "Java.perform(function() { console.log(\"Injected!\"); });"
+    }
+  }'
+```
+
+**Notes**:
+- For file-based scripts, the `script_name` in the response is the file path.
+- For inline scripts, the `script_name` is auto-generated as `inline_script_<timestamp>`.
+- Loading a script with a name that already exists in the session returns an error.
+- The loaded script's messages are automatically routed to the session's MessageCache.
+
+### Unload Script
+
+**Endpoint**: `POST /api/v1/session/script/unload`
+
+**Description**: Removes a previously loaded script from an existing session. The script is unloaded from the FRIDA agent and removed from the session's script map.
+
+**Request Body**:
+```json
+{
+  "action": "unload_script",
+  "data": {
+    "session": "12345",
+    "script": "/data/local/tmp/debug.js"
+  }
+}
+```
+
+**Request Fields**:
+- `action` (string, required): Must be "unload_script"
+- `data` (object, required): Unload script parameters
+  - `session` (string, required): Session ID (PID as string)
+  - `script` (string, required): Name of the script to unload (file path or auto-generated inline name)
+
+**Success Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "session_id": "12345",
+    "script": "/data/local/tmp/debug.js"
+  },
+  "message": "Script unloaded successfully"
+}
+```
+
+**Example**:
+```bash
+curl -X POST http://192.168.1.100:34512/api/v1/session/script/unload \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "unload_script",
+    "data": {
+      "session": "29851",
+      "script": "/data/local/tmp/debug.js"
+    }
+  }'
+```
+
+**Notes**:
+- Returns 404 if the script name doesn't exist in the session.
+- Returns 404 if the session doesn't exist.
+
 ## Generic Session Dispatcher
 
 **Endpoint**: `POST /api/v1/session`
@@ -443,6 +564,8 @@ curl -X POST http://192.168.1.100:34512/api/v1/session/messages \
 - `status` - Routes to session status logic
 - `list` - Routes to session list logic
 - `drain` - Routes to message drain logic
+- `load_script` - Routes to script load logic
+- `unload_script` - Routes to script unload logic
 
 ## Alternative Endpoints
 
@@ -870,6 +993,21 @@ class ExplorerClient:
         response = requests.post(f'{self.base_url}/session/messages', json=data)
         return response.json()
 
+    def load_script(self, session_id, script=None, script_source=None):
+        payload = {'session': session_id}
+        if script:
+            payload['script'] = script
+        elif script_source:
+            payload['script_source'] = script_source
+        data = {'action': 'load_script', 'data': payload}
+        response = requests.post(f'{self.base_url}/session/script/load', json=data)
+        return response.json()
+
+    def unload_script(self, session_id, script_name):
+        data = {'action': 'unload_script', 'data': {'session': session_id, 'script': script_name}}
+        response = requests.post(f'{self.base_url}/session/script/unload', json=data)
+        return response.json()
+
     def get_health(self):
         response = requests.get(f'{self.base_url}/health')
         return response.json()
@@ -910,6 +1048,29 @@ class ExplorerClient {
     async drainMessages(sessionId) {
         const data = { action: 'drain', data: { session: sessionId } };
         const response = await fetch(`${this.baseUrl}/session/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return await response.json();
+    }
+
+    async loadScript(sessionId, { script, scriptSource } = {}) {
+        const payload = { session: sessionId };
+        if (script) payload.script = script;
+        else if (scriptSource) payload.script_source = scriptSource;
+        const data = { action: 'load_script', data: payload };
+        const response = await fetch(`${this.baseUrl}/session/script/load`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return await response.json();
+    }
+
+    async unloadScript(sessionId, scriptName) {
+        const data = { action: 'unload_script', data: { session: sessionId, script: scriptName } };
+        const response = await fetch(`${this.baseUrl}/session/script/unload`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)

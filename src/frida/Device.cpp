@@ -712,6 +712,66 @@ Device::ListAllSessions(const nlohmann::json &filter) const {
   return Ok<nlohmann::json>(result);
 }
 
+Result<nlohmann::json, Status>
+Device::LoadScript(pid_t target_pid, const std::string &name,
+                   const std::string &source) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    return Err<Status>(
+        NotFound("Session not found for PID " + std::to_string(target_pid)));
+  }
+
+  // Determine the actual source: if empty, read from file (name is the path)
+  std::string script_source = source;
+  if (script_source.empty()) {
+    script_source = utils::ReadFileToBuffer(name);
+    if (script_source.empty()) {
+      return Err<Status>(
+          NotFound("Script file not found or empty: " + name));
+    }
+  }
+
+  // Create and load the script
+  Status create_status = session->CreateScript(name, script_source);
+  if (!create_status.Ok()) {
+    return Err<Status>(create_status);
+  }
+
+  Script *script = session->GetScript(name);
+  if (script == nullptr) {
+    return Err<Status>(SdkFailure("Script created but not found"));
+  }
+
+  script->Load();
+
+  nlohmann::json result = {{"session_id", std::to_string(target_pid)},
+                           {"pid", target_pid},
+                           {"script_name", name}};
+
+  LOGI("Script '{}' loaded into session PID {}", name, target_pid);
+  return Ok<nlohmann::json>(result);
+}
+
+Status Device::UnloadScript(pid_t target_pid,
+                            const std::string &script_name) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    return NotFound("Session not found for PID " + std::to_string(target_pid));
+  }
+
+  Status status = session->RemoveScript(script_name);
+  if (!status.Ok()) {
+    return status;
+  }
+
+  LOGI("Script '{}' unloaded from session PID {}", script_name, target_pid);
+  return Ok();
+}
+
 nlohmann::json Device::GetSessionStatistics() const {
   std::lock_guard<std::mutex> lock(m_sessions_mutex);
 

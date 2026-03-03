@@ -68,6 +68,10 @@ if (ENABLE_DEBUG)
     target_compile_definitions(COMMON_SETTINGS INTERFACE SPDLOG_ACTIVE_LEVEL=1) # debug
 else ()
     target_compile_definitions(COMMON_SETTINGS INTERFACE SPDLOG_ACTIVE_LEVEL=2) # info
+    # Enable -Oz optimization for release builds on Android
+    if (TARGET_ANDROID)
+        target_compile_options(COMMON_SETTINGS INTERFACE -Oz)
+    endif ()
 endif ()
 
 if (TARGET_ANDROID)

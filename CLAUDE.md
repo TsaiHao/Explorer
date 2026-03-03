@@ -84,6 +84,8 @@ src/
 │       ├── StatusHandler             # POST /api/v1/session/status
 │       ├── ListSessionsHandler       # POST /api/v1/session/list
 │       ├── DrainMessagesHandler      # POST /api/v1/session/messages
+│       ├── LoadScriptHandler         # POST /api/v1/session/script/load
+│       ├── UnloadScriptHandler       # POST /api/v1/session/script/unload
 │       ├── HealthHandler             # GET  /health, /api/v1/health
 │       ├── MetricsHandler            # GET  /api/v1/metrics
 │       ├── StatsHandler              # GET  /api/v1/daemon/stats
@@ -139,12 +141,14 @@ All session endpoints use `POST` with JSON body `{"action": "<cmd>", "data": {..
 | POST | `/api/v1/session/status` | StatusHandler | Query session status |
 | POST | `/api/v1/session/list` | ListSessionsHandler | List active sessions |
 | POST | `/api/v1/session/messages` | DrainMessagesHandler | Drain cached messages |
+| POST | `/api/v1/session/script/load` | LoadScriptHandler | Load script into session |
+| POST | `/api/v1/session/script/unload` | UnloadScriptHandler | Unload script from session |
 | POST | `/api/v1/session` | SessionDispatcherHandler | Generic dispatcher |
 
 ### API Command Enum (`ApiSchema`)
 
 ```cpp
-enum class ApiCommand { kStart, kStop, kStatus, kList, kDrain };
+enum class ApiCommand { kStart, kStop, kStatus, kList, kDrain, kLoadScript, kUnloadScript };
 ```
 
 ## Message Cache System

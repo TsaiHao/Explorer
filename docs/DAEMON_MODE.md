@@ -75,6 +75,11 @@ public:
   Result<json, Status> GetSessionStatus(const std::string& session_id = "");
   Result<json, Status> ListSessions(const json& filter = json::object());
   Result<json, Status> DrainSessionMessages(const std::string& session_id);
+  Result<json, Status> LoadScript(const std::string& session_id,
+                                  const std::string& name,
+                                  const std::string& source);
+  Status UnloadScript(const std::string& session_id,
+                      const std::string& script_name);
 
   // Monitoring and diagnostics
   Result<json, Status> GetDaemonStats();
@@ -106,10 +111,12 @@ All request handlers inherit from `EnhancedRequestHandler` which provides:
 3. **StatusHandler** - Queries session status information
 4. **ListSessionsHandler** - Lists and filters sessions
 5. **DrainMessagesHandler** - Drains cached script messages from sessions
-6. **HealthHandler** - Component and system health checks
-7. **MetricsHandler** - Performance and operational metrics
-8. **StatsHandler** - Daemon statistics and uptime info
-9. **SessionDispatcherHandler** - Generic session command routing
+6. **LoadScriptHandler** - Dynamically loads scripts into existing sessions
+7. **UnloadScriptHandler** - Removes scripts from existing sessions
+8. **HealthHandler** - Component and system health checks
+9. **MetricsHandler** - Performance and operational metrics
+10. **StatsHandler** - Daemon statistics and uptime info
+11. **SessionDispatcherHandler** - Generic session command routing
 
 ### State Management
 

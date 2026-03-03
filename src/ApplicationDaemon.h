@@ -97,6 +97,26 @@ public:
   Result<json, Status> DrainSessionMessages(const std::string &session_id);
 
   /**
+   * Load a script into an existing session.
+   * @param session_id The session ID (PID as string)
+   * @param name The script name (file path or generated inline name)
+   * @param source The script source (empty for file-based scripts)
+   * @return Status and loaded script info
+   */
+  Result<json, Status> LoadScript(const std::string &session_id,
+                                  const std::string &name,
+                                  const std::string &source);
+
+  /**
+   * Unload a script from an existing session.
+   * @param session_id The session ID (PID as string)
+   * @param script_name The name of the script to unload
+   * @return Status indicating success/failure
+   */
+  Status UnloadScript(const std::string &session_id,
+                      const std::string &script_name);
+
+  /**
    * Get daemon statistics and state information.
    * @return Status and daemon statistics
    */
