@@ -21,12 +21,12 @@ constexpr std::string_view kRpcResultError = "error";
 #include "java_runtime.js.h"
 
 static bool LoadJavaRuntimeIfNeeded(std::string_view source) {
-  #ifdef TARGET_ANDROID
+#ifdef TARGET_ANDROID
   return source.find("Java.") != std::string_view::npos;
-  #else
+#else
   (void)source;
   return false;
-  #endif
+#endif
 }
 
 namespace frida {
@@ -301,4 +301,86 @@ void Script::ProcessMessage(const FridaScript *script, std::string_view message,
     callback.second(this, msg_obj, data_pointer, data_size);
   }
 }
+
+#ifdef EXPLORER_USE_COROUTINES
+Task<void> Script::LoadAsync() {
+  LOGI("LoadAsync script {}@{}", m_name, (void *)this);
+
+  FridaScriptOptions *options = frida_script_options_new();
+  {
+    LOCK();
+    CHECK(m_session != nullptr);
+
+    if (!m_name.empty()) {
+      frida_script_options_set_name(options, m_name.c_str());
+    }
+    frida_script_options_set_runtime(options, FRIDA_SCRIPT_RUNTIME_QJS);
+  }
+
+  char *source = const_cast<char *>(m_source.data());
+  char *buffer = nullptr;
+  if (LoadJavaRuntimeIfNeeded(m_source)) {
+    LOGI("Loading Java runtime for script {}", m_name);
+    size_t needed_size = kScriptSource.size() + m_source.size() + 5;
+    buffer = new char[needed_size];
+    snprintf(buffer, needed_size, "%s\n%s", kScriptSource.data(),
+             m_source.data());
+    source = buffer;
+  }
+
+  auto create_result = co_await frida_async<FridaScript *>(
+      frida_session_create_script, frida_session_create_script_finish,
+      m_session, source, options);
+
+  delete[] buffer;
+
+  if (create_result.IsErr()) {
+    LOGE("Failed to create script {}@{}: {}", m_name, (void *)this,
+         create_result.UnwrapErr().Message());
+    co_return;
+  }
+
+  {
+    LOCK();
+    m_script = create_result.Unwrap();
+    g_signal_connect(m_script, "message", G_CALLBACK(OnMessage), (void *)this);
+    m_loaded = true;
+  }
+
+  auto load_status = co_await frida_async(frida_script_load,
+                                          frida_script_load_finish, m_script);
+  if (!load_status.Ok()) {
+    LOGE("Failed to load script {}@{}: {}", m_name, (void *)this,
+         load_status.Message());
+    co_return;
+  }
+
+  LOGD("Script loaded async {}@{}", m_name, (void *)this);
+}
+
+Task<void> Script::UnloadAsync() {
+  LOGI("UnloadAsync script {}@{}", m_name, (void *)this);
+
+  FridaScript *script_to_unload = nullptr;
+  {
+    LOCK();
+    script_to_unload = m_script;
+  }
+
+  auto status = co_await frida_async(
+      frida_script_unload, frida_script_unload_finish, script_to_unload);
+  if (!status.Ok()) {
+    LOGE("Failed to unload script {}@{}: {}", m_name, (void *)this,
+         status.Message());
+  }
+
+  {
+    LOCK();
+    frida_unref(m_script);
+    m_script = nullptr;
+    m_loaded = false;
+  }
+}
+#endif // EXPLORER_USE_COROUTINES
+
 } // namespace frida

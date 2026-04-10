@@ -24,8 +24,8 @@ Session::~Session() {
   }
   if (LIKELY(m_session != nullptr)) {
     // Add defensive programming - ensure we only unref once
-    FridaSession* session_to_unref = m_session;
-    m_session = nullptr;  // Clear pointer before unref to prevent double-free
+    FridaSession *session_to_unref = m_session;
+    m_session = nullptr; // Clear pointer before unref to prevent double-free
     frida_unref(session_to_unref);
   }
 }
@@ -198,5 +198,35 @@ void Session::RegisterCacheCallback(Script *script) {
         }
       });
 }
+
+#ifdef EXPLORER_USE_COROUTINES
+Task<void> Session::ResumeAsync() {
+  if (m_attaching) {
+    LOGW("Resuming a running session {}", (void *)this);
+    co_return;
+  }
+  auto status = co_await frida_async(frida_session_resume,
+                                     frida_session_resume_finish, m_session);
+  if (!status.Ok()) {
+    LOGE("Failed to resume session: {}", status.Message());
+    co_return;
+  }
+  m_attaching = true;
+}
+
+Task<void> Session::DetachAsync() {
+  if (!m_attaching) {
+    LOGW("Detaching an idle session {}", (void *)this);
+    co_return;
+  }
+  auto status = co_await frida_async(frida_session_detach,
+                                     frida_session_detach_finish, m_session);
+  if (!status.Ok()) {
+    LOGE("Failed to detach session: {}", status.Message());
+    co_return;
+  }
+  m_attaching = false;
+}
+#endif // EXPLORER_USE_COROUTINES
 
 } // namespace frida

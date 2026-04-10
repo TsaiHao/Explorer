@@ -9,6 +9,10 @@
 #include "utils/SmallMap.h"
 #include "utils/System.h"
 
+#ifdef EXPLORER_USE_COROUTINES
+#include "Coroutine.h"
+#endif
+
 #include <chrono>
 #include <functional>
 #include <mutex>
@@ -104,6 +108,20 @@ public:
    * @return Status indicating success/failure
    */
   Status UnloadScript(pid_t target_pid, const std::string &script_name);
+
+#ifdef EXPLORER_USE_COROUTINES
+  Task<Result<nlohmann::json, Status>>
+  CreateSessionAsync(const nlohmann::json &config);
+
+  Task<Status> RemoveSessionAsync(pid_t target_pid);
+
+  Task<Result<nlohmann::json, Status>>
+  LoadScriptAsync(pid_t target_pid, const std::string &name,
+                  const std::string &source);
+
+  Task<Status> UnloadScriptAsync(pid_t target_pid,
+                                 const std::string &script_name);
+#endif
 
   /**
    * Get session statistics.

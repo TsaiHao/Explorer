@@ -23,6 +23,7 @@ configure_file(
     @ONLY
 )
 
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -35,6 +36,7 @@ set(ENABLE_DEBUG OFF CACHE BOOL "Enable debug logs")
 set(STATIC_LIBSTDCPP OFF CACHE BOOL "Link libstdc++ statically")
 
 option(ENABLE_SQLITE "Enable features that require sqlite(data output). Enabling it would build sqlite3" OFF)
+option(ENABLE_COROUTINES "Enable C++20 coroutine-based async Frida APIs" ON)
 
 if (TARGET_ANDROID)
     include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
@@ -84,6 +86,41 @@ if (TARGET_ANDROID)
 elseif (TARGET_VEGA)
     target_compile_definitions(COMMON_SETTINGS INTERFACE TARGET_VEGA)
 endif ()
+
+# ---------------------------------------------------------------------------
+# C++20 coroutine detection
+# ---------------------------------------------------------------------------
+if(ENABLE_COROUTINES)
+    include(CheckIncludeFileCXX)
+    include(CheckCXXSourceCompiles)
+
+    check_include_file_cxx("coroutine" HAS_COROUTINE_HEADER)
+
+    if(HAS_COROUTINE_HEADER)
+        check_cxx_source_compiles("
+            #include <coroutine>
+            struct Awaitable {
+                bool await_ready() { return false; }
+                void await_suspend(std::coroutine_handle<>) {}
+                void await_resume() {}
+            };
+            int main() { return 0; }
+        " HAS_COROUTINE_SUPPORT)
+    endif()
+
+    if(HAS_COROUTINE_SUPPORT)
+        message(STATUS "C++20 coroutines: ENABLED")
+        target_compile_definitions(COMMON_SETTINGS INTERFACE EXPLORER_USE_COROUTINES)
+        # GCC requires -fcoroutines flag
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(COMMON_SETTINGS INTERFACE -fcoroutines)
+        endif()
+    else()
+        message(WARNING "C++20 coroutines requested but not supported by compiler — falling back to sync APIs")
+    endif()
+else()
+    message(STATUS "C++20 coroutines: DISABLED (using sync Frida APIs)")
+endif()
 
 add_subdirectory(third_party)
 add_subdirectory(src)

@@ -6,10 +6,10 @@
 #include "utils/Log.h"
 #include "utils/Status.h"
 
+#include <array>
 #include <cstring>
 #include <sstream>
 #include <string>
-#include <array>
 #include <vector>
 
 #include <errno.h>

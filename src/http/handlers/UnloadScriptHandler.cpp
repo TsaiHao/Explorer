@@ -63,8 +63,7 @@ void UnloadScriptHandler::Handle(Poco::Net::HTTPServerRequest &req,
     return;
   }
 
-  json response_data = {{"session_id", session_id},
-                         {"script", script_name}};
+  json response_data = {{"session_id", session_id}, {"script", script_name}};
 
   LOGI("Script unloaded successfully for session: {}", session_id);
   SendSuccess(res, response_data, "Script unloaded successfully");

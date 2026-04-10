@@ -389,8 +389,9 @@ json ApiSchema::GetRequestSchema() {
               {"properties",
                {{"action",
                  {{"type", "string"},
-                  {"enum", {"start", "stop", "status", "list", "drain",
-                           "load_script", "unload_script"}},
+                  {"enum",
+                   {"start", "stop", "status", "list", "drain", "load_script",
+                    "unload_script"}},
                   {"description", "The command to execute"}}},
                 {"data",
                  {{"type", "object"},
@@ -416,13 +417,11 @@ json ApiSchema::GetRequestExamples() {
       {"load_script",
        {{"action", "load_script"},
         {"data",
-         {{"session", "12345"},
-          {"script", "/data/local/tmp/debug.js"}}}}},
+         {{"session", "12345"}, {"script", "/data/local/tmp/debug.js"}}}}},
       {"unload_script",
        {{"action", "unload_script"},
         {"data",
-         {{"session", "12345"},
-          {"script", "/data/local/tmp/debug.js"}}}}}};
+         {{"session", "12345"}, {"script", "/data/local/tmp/debug.js"}}}}}};
 }
 
 Status ApiSchema::CheckFieldType(const json &value, json::value_t expected_type,

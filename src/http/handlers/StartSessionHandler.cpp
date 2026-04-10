@@ -272,14 +272,16 @@ StartSessionHandler::ValidateTraceConfiguration(const json &trace_config) {
       // Java tracing requires both class and method
       if (!trace_item.contains("class") ||
           trace_item["class"].get<std::string>().empty()) {
-        return BadArgument("Trace item " + std::to_string(i) +
-                           " of type 'java' requires a non-empty 'class' field");
+        return BadArgument(
+            "Trace item " + std::to_string(i) +
+            " of type 'java' requires a non-empty 'class' field");
       }
 
       if (!trace_item.contains("method") ||
           trace_item["method"].get<std::string>().empty()) {
-        return BadArgument("Trace item " + std::to_string(i) +
-                           " of type 'java' requires a non-empty 'method' field");
+        return BadArgument(
+            "Trace item " + std::to_string(i) +
+            " of type 'java' requires a non-empty 'method' field");
       }
     } else {
       // Native tracing requires at least one of namespace, class, or method
@@ -288,10 +290,9 @@ StartSessionHandler::ValidateTraceConfiguration(const json &trace_config) {
       std::string method = trace_item.value("method", "");
 
       if (ns.empty() && cls.empty() && method.empty()) {
-        return BadArgument(
-            "Trace item " + std::to_string(i) +
-            " of type 'native' requires at least one of "
-            "'namespace', 'class', or 'method' to be non-empty");
+        return BadArgument("Trace item " + std::to_string(i) +
+                           " of type 'native' requires at least one of "
+                           "'namespace', 'class', or 'method' to be non-empty");
       }
     }
 
@@ -375,22 +376,23 @@ void StartSessionHandler::ProcessSessionCreation(
     LOGI("Session data size: {}", session_data.size());
 
     // Try to dump individual fields to find the problematic one
-    for (const auto& [key, value] : session_data.items()) {
+    for (const auto &[key, value] : session_data.items()) {
       try {
-        LOGI("Field '{}': type={}, value={}", key, value.type_name(), value.dump());
-      } catch (const json::exception& e) {
+        LOGI("Field '{}': type={}, value={}", key, value.type_name(),
+             value.dump());
+      } catch (const json::exception &e) {
         LOGE("JSON error in field '{}': {}", key, e.what());
       }
     }
 
     LOGI("Full session data dump: {}", session_data.dump());
-  } catch (const json::exception& e) {
+  } catch (const json::exception &e) {
     LOGE("JSON error in session_data.dump(): {}", e.what());
   }
 
   try {
     SendSuccess(res, session_data, "Session started successfully");
-  } catch (const json::exception& e) {
+  } catch (const json::exception &e) {
     LOGE("JSON error in SendSuccess(): {}", e.what());
     SendError(res, 500, std::string("JSON serialization error: ") + e.what());
   }

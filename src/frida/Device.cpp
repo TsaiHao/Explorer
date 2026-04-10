@@ -611,8 +611,7 @@ Status Device::RemoveSession(pid_t target_pid) {
   return Ok();
 }
 
-Result<nlohmann::json, Status>
-Device::DrainSessionMessages(pid_t target_pid) {
+Result<nlohmann::json, Status> Device::DrainSessionMessages(pid_t target_pid) {
   std::lock_guard<std::mutex> lock(m_sessions_mutex);
 
   Session *session = GetSession(target_pid);
@@ -629,12 +628,11 @@ Device::DrainSessionMessages(pid_t target_pid) {
     messages_array.push_back(std::move(msg));
   }
 
-  nlohmann::json result = {
-      {"session_id", std::to_string(target_pid)},
-      {"pid", target_pid},
-      {"message_count", messages_array.size()},
-      {"dropped_count", dropped_count},
-      {"messages", std::move(messages_array)}};
+  nlohmann::json result = {{"session_id", std::to_string(target_pid)},
+                           {"pid", target_pid},
+                           {"message_count", messages_array.size()},
+                           {"dropped_count", dropped_count},
+                           {"messages", std::move(messages_array)}};
 
   return Ok<nlohmann::json>(result);
 }
@@ -719,9 +717,9 @@ Device::ListAllSessions(const nlohmann::json &filter) const {
   return Ok<nlohmann::json>(result);
 }
 
-Result<nlohmann::json, Status>
-Device::LoadScript(pid_t target_pid, const std::string &name,
-                   const std::string &source) {
+Result<nlohmann::json, Status> Device::LoadScript(pid_t target_pid,
+                                                  const std::string &name,
+                                                  const std::string &source) {
   std::lock_guard<std::mutex> lock(m_sessions_mutex);
 
   Session *session = GetSession(target_pid);
@@ -735,8 +733,7 @@ Device::LoadScript(pid_t target_pid, const std::string &name,
   if (script_source.empty()) {
     script_source = utils::ReadFileToBuffer(name);
     if (script_source.empty()) {
-      return Err<Status>(
-          NotFound("Script file not found or empty: " + name));
+      return Err<Status>(NotFound("Script file not found or empty: " + name));
     }
   }
 
@@ -761,8 +758,7 @@ Device::LoadScript(pid_t target_pid, const std::string &name,
   return Ok<nlohmann::json>(result);
 }
 
-Status Device::UnloadScript(pid_t target_pid,
-                            const std::string &script_name) {
+Status Device::UnloadScript(pid_t target_pid, const std::string &script_name) {
   std::lock_guard<std::mutex> lock(m_sessions_mutex);
 
   Session *session = GetSession(target_pid);
@@ -848,5 +844,204 @@ Device::ExtractAppNameFromConfig(const nlohmann::json &config) const {
 
   return "unknown";
 }
+
+#ifdef EXPLORER_USE_COROUTINES
+Task<Result<nlohmann::json, Status>>
+Device::CreateSessionAsync(const nlohmann::json &config) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  LOGI("CreateSessionAsync with config: {}", config.dump());
+
+  if (!config.is_object()) {
+    co_return Err<Status>(BadArgument("Session config must be a JSON object"));
+  }
+
+  std::string app_name = ExtractAppNameFromConfig(config);
+  if (app_name.empty()) {
+    co_return Err<Status>(
+        BadArgument("Unable to extract app name from config"));
+  }
+
+  // Check for existing session
+  if (config.contains("pid")) {
+    pid_t target_pid = config["pid"];
+    if (GetSession(target_pid) != nullptr) {
+      co_return Err<Status>(InvalidOperation("Session already exists for PID " +
+                                             std::to_string(target_pid)));
+    }
+  }
+
+  // Resolve target PID
+  pid_t target_pid = 0;
+  FridaSession *frida_session = nullptr;
+
+  if (config.contains(kPidKey)) {
+    target_pid = config[kPidKey].get<int>();
+  } else if (config.contains(kAppNameKey)) {
+    auto proc = utils::FindProcessByName(app_name);
+    if (!proc.has_value()) {
+      co_return Err<Status>(NotFound("Process not found: " + app_name));
+    }
+    target_pid = proc->pid;
+  } else {
+    co_return Err<Status>(BadArgument("No pid or app name in config"));
+  }
+
+  // Async attach
+  auto attach_result = co_await frida_async<FridaSession *>(
+      frida_device_attach, frida_device_attach_finish, m_device,
+      static_cast<guint>(target_pid),
+      static_cast<FridaSessionOptions *>(nullptr));
+
+  if (attach_result.IsErr()) {
+    co_return Err<Status>(attach_result.UnwrapErr());
+  }
+
+  frida_session = attach_result.Unwrap();
+  if (frida_session == nullptr) {
+    co_return Err<Status>(SdkFailure("Attach returned null session"));
+  }
+
+  auto proc_info = utils::FindProcessByPid(target_pid);
+  if (!proc_info.has_value()) {
+    frida_unref(frida_session);
+    co_return Err<Status>(NotFound("Process not found after attach"));
+  }
+
+  auto session = std::make_unique<Session>(target_pid, frida_session);
+
+  // Load scripts from config
+  Status script_status = session->LoadInlineScriptsFromConfig(config);
+  if (!script_status.Ok()) {
+    co_return Err<Status>(script_status);
+  }
+  script_status = session->LoadScriptFilesFromConfig(config);
+  if (!script_status.Ok()) {
+    co_return Err<Status>(script_status);
+  }
+  script_status = session->LoadPlugins(config);
+  if (!script_status.Ok()) {
+    co_return Err<Status>(script_status);
+  }
+
+  pid_t session_pid = session->GetPid();
+  m_sessions[*proc_info] = std::move(session);
+
+  SessionMetadata metadata(session_pid, app_name, config);
+  m_session_metadata.Emplace(session_pid, std::move(metadata));
+  m_total_sessions_created++;
+
+  nlohmann::json session_data = {
+      {"session_id", std::to_string(session_pid)},
+      {"pid", session_pid},
+      {"app", app_name},
+      {"status", "active"},
+      {"created_at", std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count()},
+      {"config", config}};
+
+  co_return Ok<nlohmann::json>(session_data);
+}
+
+Task<Status> Device::RemoveSessionAsync(pid_t target_pid) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  LOGI("RemoveSessionAsync for PID: {}", target_pid);
+
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    co_return NotFound("Session not found for PID " +
+                       std::to_string(target_pid));
+  }
+
+  // Async detach
+  if (session->IsAttaching()) {
+    co_await session->DetachAsync();
+  }
+
+  // Find and remove from session map
+  utils::ProcessInfo target_proc_info;
+  bool found = false;
+  m_sessions.ForEach([&](const utils::ProcessInfo &proc_info,
+                         const std::unique_ptr<Session> &) {
+    if (proc_info.pid == target_pid) {
+      target_proc_info = proc_info;
+      found = true;
+    }
+  });
+
+  if (found) {
+    m_sessions.Erase(target_proc_info);
+  }
+
+  m_session_metadata.Erase(target_pid);
+
+  LOGI("Session removed async for PID: {}", target_pid);
+  co_return Ok();
+}
+
+Task<Result<nlohmann::json, Status>>
+Device::LoadScriptAsync(pid_t target_pid, const std::string &name,
+                        const std::string &source) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    co_return Err<Status>(
+        NotFound("Session not found for PID " + std::to_string(target_pid)));
+  }
+
+  std::string script_source = source;
+  if (script_source.empty()) {
+    script_source = utils::ReadFileToBuffer(name);
+    if (script_source.empty()) {
+      co_return Err<Status>(
+          NotFound("Script file not found or empty: " + name));
+    }
+  }
+
+  Status create_status = session->CreateScript(name, script_source);
+  if (!create_status.Ok()) {
+    co_return Err<Status>(create_status);
+  }
+
+  Script *script = session->GetScript(name);
+  if (script == nullptr) {
+    co_return Err<Status>(SdkFailure("Script created but not found"));
+  }
+
+  co_await script->LoadAsync();
+
+  nlohmann::json result = {{"session_id", std::to_string(target_pid)},
+                           {"pid", target_pid},
+                           {"script_name", name}};
+
+  LOGI("Script '{}' loaded async into session PID {}", name, target_pid);
+  co_return Ok<nlohmann::json>(result);
+}
+
+Task<Status> Device::UnloadScriptAsync(pid_t target_pid,
+                                       const std::string &script_name) {
+  std::lock_guard<std::mutex> lock(m_sessions_mutex);
+
+  Session *session = GetSession(target_pid);
+  if (session == nullptr) {
+    co_return NotFound("Session not found for PID " +
+                       std::to_string(target_pid));
+  }
+
+  Script *script = session->GetScript(script_name);
+  if (script == nullptr) {
+    co_return NotFound("Script not found: " + script_name);
+  }
+
+  co_await script->UnloadAsync();
+
+  LOGI("Script '{}' unloaded async from session PID {}", script_name,
+       target_pid);
+  co_return Ok();
+}
+#endif // EXPLORER_USE_COROUTINES
 
 } // namespace frida

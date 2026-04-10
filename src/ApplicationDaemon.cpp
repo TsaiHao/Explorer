@@ -1,15 +1,15 @@
 #include "ApplicationDaemon.h"
 #include "frida/Device.h"
 #include "http/RequestHandler.h"
+#include "http/handlers/DrainMessagesHandler.h"
 #include "http/handlers/HealthHandler.h"
 #include "http/handlers/ListSessionsHandler.h"
+#include "http/handlers/LoadScriptHandler.h"
 #include "http/handlers/MetricsHandler.h"
 #include "http/handlers/SessionDispatcherHandler.h"
 #include "http/handlers/StartSessionHandler.h"
 #include "http/handlers/StatsHandler.h"
 #include "http/handlers/StatusHandler.h"
-#include "http/handlers/DrainMessagesHandler.h"
-#include "http/handlers/LoadScriptHandler.h"
 #include "http/handlers/StopSessionHandler.h"
 #include "http/handlers/UnloadScriptHandler.h"
 #include "utils/Log.h"
@@ -82,7 +82,8 @@ void InitLogger() {
 
 class ApplicationDaemon::Impl {
 public:
-  explicit Impl(ApplicationDaemon& parent, const std::vector<std::string_view> &args);
+  explicit Impl(ApplicationDaemon &parent,
+                const std::vector<std::string_view> &args);
   ~Impl();
 
   Status Initialize();
@@ -120,7 +121,7 @@ private:
     void operator()(GMainLoop *loop) const noexcept { g_main_loop_unref(loop); }
   };
 
-  ApplicationDaemon& m_parent;  // Reference to parent ApplicationDaemon
+  ApplicationDaemon &m_parent; // Reference to parent ApplicationDaemon
 
   std::unique_ptr<GMainLoop, LoopDeleter> m_loop;
   std::unique_ptr<frida::Device> m_device;
@@ -139,9 +140,10 @@ private:
   std::chrono::steady_clock::time_point m_start_time;
 };
 
-ApplicationDaemon::Impl::Impl(ApplicationDaemon& parent, const std::vector<std::string_view> &args)
-    : m_parent(parent), m_running(false), m_shutdown_requested(false), m_host("0.0.0.0"),
-      m_port(34512), m_daemon_mode(true) {
+ApplicationDaemon::Impl::Impl(ApplicationDaemon &parent,
+                              const std::vector<std::string_view> &args)
+    : m_parent(parent), m_running(false), m_shutdown_requested(false),
+      m_host("0.0.0.0"), m_port(34512), m_daemon_mode(true) {
 
   HandleArgs(args);
 }
@@ -182,7 +184,7 @@ Status ApplicationDaemon::Impl::Initialize() {
     LOGE("Failed to initialize state manager: {}", state_init.Message());
     return state_init;
   } else {
-    LOGI("State manager initialized successfully, this={}", (void*)this);
+    LOGI("State manager initialized successfully, this={}", (void *)this);
   }
 
   // Perform state recovery
@@ -227,12 +229,12 @@ Status ApplicationDaemon::Impl::Run() {
 
   // Enter main event loop
   while (!m_shutdown_requested && m_loop) {
-    //g_main_context_iteration(g_main_loop_get_context(m_loop.get()), TRUE);
-      if (g_main_loop_is_running(m_loop.get()) != 0) {
-        g_main_loop_run(m_loop.get());
-      } else {
-        break;
-      }
+    // g_main_context_iteration(g_main_loop_get_context(m_loop.get()), TRUE);
+    if (g_main_loop_is_running(m_loop.get()) != 0) {
+      g_main_loop_run(m_loop.get());
+    } else {
+      break;
+    }
   }
 
   LOGI("Explorer Daemon main loop exiting...");
@@ -408,7 +410,7 @@ Result<json, Status> ApplicationDaemon::Impl::ListSessions(const json &filter) {
 
 Result<json, Status> ApplicationDaemon::Impl::GetDaemonStats() {
   if (!m_state_manager) {
-    LOGE("State manager not initialized, this={}", (void*)this);
+    LOGE("State manager not initialized, this={}", (void *)this);
     return Err<Status>(InvalidState("State manager not initialized"));
   }
 
@@ -514,10 +516,13 @@ void ApplicationDaemon::Impl::HandleArgs(
     } else if (arg == kLegacyOption) {
       // Legacy mode is handled by main.cpp, just ignore it here
     } else if (arg == kConfigOption && i + 1 < static_cast<int>(args.size())) {
-      // Config file option is handled by main.cpp, skip the argument and its value
+      // Config file option is handled by main.cpp, skip the argument and its
+      // value
       ++i;
-    } else if (arg == kConfigDirOption && i + 1 < static_cast<int>(args.size())) {
-      // Config directory option is handled by main.cpp, skip the argument and its value
+    } else if (arg == kConfigDirOption &&
+               i + 1 < static_cast<int>(args.size())) {
+      // Config directory option is handled by main.cpp, skip the argument and
+      // its value
       ++i;
     } else if (arg == kPidFileOption && i + 1 < static_cast<int>(args.size())) {
       // PID file option is handled by main.cpp, skip the argument and its value
@@ -552,7 +557,8 @@ void ApplicationDaemon::Impl::SetupHttpServer() {
   // Use the safely stored parent ApplicationDaemon reference
   ApplicationDaemon *daemon_instance = &m_parent;
 
-  LOGI("SetupHttpServer: Using ApplicationDaemon instance at {}", static_cast<void*>(daemon_instance));
+  LOGI("SetupHttpServer: Using ApplicationDaemon instance at {}",
+       static_cast<void *>(daemon_instance));
 
   // Register specialized session command handlers
   auto start_handler =

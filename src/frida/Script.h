@@ -17,6 +17,10 @@
 #include "utils/Result.h"
 #include "utils/SmallMap.h"
 
+#ifdef EXPLORER_USE_COROUTINES
+#include "Coroutine.h"
+#endif
+
 namespace frida {
 class Session;
 using RpcResult = Result<nlohmann::json, nlohmann::json>;
@@ -33,6 +37,11 @@ public:
 
   void Load();
   void Unload();
+
+#ifdef EXPLORER_USE_COROUTINES
+  Task<void> LoadAsync();
+  Task<void> UnloadAsync();
+#endif
 
   // todo: do we need data copy here
   void AddMessageCallback(std::string_view name, OnMessageCallback callback);

@@ -9,7 +9,7 @@
             "generator": "Ninja",
             "toolchainFile": "$env{ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake",
             "cacheVariables": {
-                "CMAKE_CXX_STANDARD": "17",
+                "CMAKE_CXX_STANDARD": "20",
                 "ANDROID_ABI": "armeabi-v7a",
                 "ANDROID_PLATFORM": "android-31",
                 "ENABLE_DEBUG": "ON",
@@ -24,7 +24,7 @@
             "generator": "Ninja",
             "toolchainFile": "$env{ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake",
             "cacheVariables": {
-                "CMAKE_CXX_STANDARD": "17",
+                "CMAKE_CXX_STANDARD": "20",
                 "CMAKE_BUILD_TYPE": "Release",
                 "ANDROID_ABI": "armeabi-v7a",
                 "ANDROID_PLATFORM": "android-31",
@@ -44,7 +44,7 @@
                 "CMAKE_SYSTEM_PROCESSOR": "arm",
                 "CMAKE_C_COMPILER": "arm-linux-gnueabihf-gcc",
                 "CMAKE_CXX_COMPILER": "arm-linux-gnueabihf-g++",
-                "CMAKE_CXX_STANDARD": "17",
+                "CMAKE_CXX_STANDARD": "20",
                 "TARGET_ANDROID": "OFF",
                 "TARGET_VEGA": "ON",
                 "ENABLE_DEBUG": "ON",

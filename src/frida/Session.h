@@ -28,6 +28,11 @@ public:
   void Resume();
   void Detach();
 
+#ifdef EXPLORER_USE_COROUTINES
+  Task<void> ResumeAsync();
+  Task<void> DetachAsync();
+#endif
+
   Status LoadInlineScriptsFromConfig(const nlohmann::json &config);
   Status LoadScriptFilesFromConfig(const nlohmann::json &config);
   Status LoadPlugins(const nlohmann::json &config);

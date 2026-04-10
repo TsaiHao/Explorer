@@ -6,6 +6,7 @@ embed_js_file(
 )
 
 target_sources(exp_frida PRIVATE
+    Coroutine.h
     Device.h
     Device.cpp
     Script.h

@@ -58,8 +58,9 @@ void RequestHandler::SendSuccess(Poco::Net::HTTPServerResponse &res,
     std::string response_body;
     try {
       response_body = response.dump(2);
-      LOGI("SendSuccess: JSON dump successful, body length: {}", response_body.length());
-    } catch (const json::exception& e) {
+      LOGI("SendSuccess: JSON dump successful, body length: {}",
+           response_body.length());
+    } catch (const json::exception &e) {
       LOGE("SendSuccess: JSON dump failed: {}", e.what());
       throw;
     }
@@ -72,7 +73,7 @@ void RequestHandler::SendSuccess(Poco::Net::HTTPServerResponse &res,
     out << response_body;
 
     LOGI("SendSuccess: Response sent successfully");
-  } catch (const json::exception& e) {
+  } catch (const json::exception &e) {
     LOGE("SendSuccess: JSON exception: {}", e.what());
     throw;
   }

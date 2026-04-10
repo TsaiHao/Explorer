@@ -15,25 +15,25 @@
 #include "Application.h"
 #include "ApplicationDaemon.h"
 #include "utils/Log.h"
-#include "utils/System.h"
 #include "utils/Macros.h"
+#include "utils/System.h"
 #include "version.h"
 
 namespace {
 
 // Configuration structure for main application
 struct MainConfig {
-  bool daemon_mode = true;                    // Default to daemon mode
-  bool foreground = false;                    // Run in foreground (don't fork)
-  std::string host = "0.0.0.0";               // Bind host
-  int port = 34512;                           // Default daemon port
+  bool daemon_mode = true;            // Default to daemon mode
+  bool foreground = false;            // Run in foreground (don't fork)
+  std::string host = "0.0.0.0";       // Bind host
+  int port = 34512;                   // Default daemon port
   std::string config_dir = TEMP_PATH; // Configuration directory
   std::string pid_file_path =
       std::string(TEMP_PATH) + "/explorer.pid"; // PID file location
-  std::string config_file = "";       // Config file path (triggers legacy mode)
-  bool legacy_mode = false;           // Use legacy Application class
-  bool show_help = false;             // Show help message
-  bool show_version = false;          // Show version
+  std::string config_file = ""; // Config file path (triggers legacy mode)
+  bool legacy_mode = false;     // Use legacy Application class
+  bool show_help = false;       // Show help message
+  bool show_version = false;    // Show version
 };
 
 // Global pointers for signal handlers

@@ -15,13 +15,13 @@ using json = nlohmann::json;
  * API command types supported by the daemon.
  */
 enum class ApiCommand {
-  kStart,        // Start a new session
-  kStop,         // Stop an existing session
-  kStatus,       // Get session status
-  kList,         // List all sessions
-  kDrain,        // Drain cached messages from a session
-  kLoadScript,   // Load a script into an existing session
-  kUnloadScript  // Unload a script from an existing session
+  kStart,       // Start a new session
+  kStop,        // Stop an existing session
+  kStatus,      // Get session status
+  kList,        // List all sessions
+  kDrain,       // Drain cached messages from a session
+  kLoadScript,  // Load a script into an existing session
+  kUnloadScript // Unload a script from an existing session
 };
 
 /**
