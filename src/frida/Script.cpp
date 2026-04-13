@@ -3,6 +3,7 @@
 //
 
 #include "Script.h"
+#include "IFridaApi.h"
 #include "utils/Log.h"
 
 #include "nlohmann/json.hpp"
@@ -31,8 +32,9 @@ static bool LoadJavaRuntimeIfNeeded(std::string_view source) {
 
 namespace frida {
 Script::Script(std::string_view name, std::string_view source,
-               FridaSession *session)
-    : m_name(name), m_source(source), m_session(session) {
+               FridaSession *session, IFridaApi *frida_api)
+    : m_name(name), m_source(source), m_session(session),
+      m_frida(frida_api) {
   LOGI("Creating script {}", (void *)this);
 }
 
@@ -69,7 +71,7 @@ void Script::Load() {
                m_source.data());
       source = buffer;
     }
-    m_script = frida_session_create_script_sync(m_session, source, options,
+    m_script = m_frida->SessionCreateScriptSync(m_session, source, options,
                                                 nullptr, &error);
     delete[] buffer;
     if (m_script == nullptr || error != nullptr) {
@@ -83,11 +85,12 @@ void Script::Load() {
     // todo: fix compile error here
     // g_clear_object(options);
 
-    g_signal_connect(m_script, "message", G_CALLBACK(OnMessage), (void *)this);
+    m_frida->SignalConnect(m_script, "message", G_CALLBACK(OnMessage),
+                           (void *)this);
     m_loaded = true;
   }
 
-  frida_script_load_sync(m_script, nullptr, &error);
+  m_frida->ScriptLoadSync(m_script, nullptr, &error);
   CHECK(error == nullptr);
 
   LOGD("Script loaded {}@{}", m_name, (void *)this);
@@ -98,10 +101,10 @@ void Script::Unload() {
 
   GError *error{nullptr};
   LOCK();
-  frida_script_unload_sync(m_script, nullptr, &error);
+  m_frida->ScriptUnloadSync(m_script, nullptr, &error);
   CHECK(error == nullptr);
 
-  frida_unref(m_script);
+  m_frida->Unref(m_script);
   m_script = nullptr;
   m_loaded = false;
 }
@@ -150,7 +153,7 @@ int Script::SendRpcCall(std::string_view method, std::string_view param_json) {
       .append(param_json.empty() ? "[]" : param_json)
       .append("]");
 
-  frida_script_post(m_script, message.c_str(), nullptr);
+  m_frida->ScriptPost(m_script, message.c_str(), nullptr);
   LOGD("Sent RPC call {} with ID {}", message, call_id);
 
   return call_id;
@@ -343,7 +346,8 @@ Task<void> Script::LoadAsync() {
   {
     LOCK();
     m_script = create_result.Unwrap();
-    g_signal_connect(m_script, "message", G_CALLBACK(OnMessage), (void *)this);
+    m_frida->SignalConnect(m_script, "message", G_CALLBACK(OnMessage),
+                           (void *)this);
     m_loaded = true;
   }
 
@@ -376,7 +380,7 @@ Task<void> Script::UnloadAsync() {
 
   {
     LOCK();
-    frida_unref(m_script);
+    m_frida->Unref(m_script);
     m_script = nullptr;
     m_loaded = false;
   }

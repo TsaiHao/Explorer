@@ -18,7 +18,7 @@ public:
   friend class Device;
   Status CreateScript(std::string_view name, std::string_view source);
 
-  Session(pid_t pid, FridaSession *session);
+  Session(pid_t pid, FridaSession *session, IFridaApi *frida_api = nullptr);
   ~Session();
 
   DISABLE_COPY_AND_MOVE(Session);
@@ -47,6 +47,7 @@ public:
 private:
   void RegisterCacheCallback(Script *script);
   FridaSession *m_session{nullptr};
+  IFridaApi *m_frida{nullptr};
   std::atomic<bool> m_attaching{false};
 
   pid_t m_pid{0};

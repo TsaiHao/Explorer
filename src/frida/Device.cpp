@@ -2,8 +2,11 @@
 // Created by Hao, Zaijun on 2025/4/27.
 //
 #include "Device.h"
+#include "IFridaApi.h"
+#include "RealFridaApi.h"
 #include "frida-core.h"
 #include "utils/Log.h"
+#include "utils/RealSystemApi.h"
 #include "utils/Status.h"
 #include "utils/Subprocess.h"
 #include "utils/System.h"
@@ -18,10 +21,11 @@ constexpr std::string_view kSpawnKey = "spawn";
 
 class DeviceSpawnGatingGuard {
 public:
-  explicit DeviceSpawnGatingGuard(FridaDevice *device) : m_device(device) {
+  DeviceSpawnGatingGuard(FridaDevice *device, IFridaApi *frida)
+      : m_device(device), m_frida(frida) {
     CHECK(m_device != nullptr);
     GError *error = nullptr;
-    frida_device_enable_spawn_gating_sync(m_device, nullptr, &error);
+    m_frida->DeviceEnableSpawnGatingSync(m_device, nullptr, &error);
     if (error != nullptr) {
       LOGE("Failed to enable spawn gating: {}", error->message);
     }
@@ -31,7 +35,7 @@ public:
   ~DeviceSpawnGatingGuard() {
     if (m_enabled) {
       GError *error = nullptr;
-      frida_device_disable_spawn_gating_sync(m_device, nullptr, &error);
+      m_frida->DeviceDisableSpawnGatingSync(m_device, nullptr, &error);
       if (error != nullptr) {
         LOGE("Failed to disable spawn gating: {}", error->message);
       }
@@ -42,6 +46,7 @@ public:
 
 private:
   FridaDevice *m_device = nullptr;
+  IFridaApi *m_frida = nullptr;
   bool m_enabled = false;
 };
 
@@ -69,8 +74,9 @@ int64_t GetNowMs() {
       .count();
 }
 
-void KillAppIfRunning(std::string_view app_name) {
-  auto proc_info = utils::FindProcessByName(app_name);
+void KillAppIfRunning(std::string_view app_name,
+                      utils::ISystemApi *system_api) {
+  auto proc_info = system_api->FindProcessByName(app_name);
   if (!proc_info.has_value()) {
     return;
   }
@@ -78,7 +84,7 @@ void KillAppIfRunning(std::string_view app_name) {
   LOGI("App {} is running, attempting to kill it with PID: {}", app_name,
        proc_info->pid);
 
-  int ret = kill(proc_info->pid, SIGTERM);
+  int ret = system_api->KillProcess(proc_info->pid, SIGTERM);
   if (ret != 0) {
     LOGE("Failed to kill app {} with PID: {}", app_name, proc_info->pid);
   } else {
@@ -87,15 +93,22 @@ void KillAppIfRunning(std::string_view app_name) {
 }
 } // namespace
 
-Device::Device() : m_device_created_at(std::chrono::steady_clock::now()) {
+Device::Device()
+    : Device(std::make_shared<RealFridaApi>(),
+             std::make_shared<utils::RealSystemApi>()) {}
+
+Device::Device(std::shared_ptr<IFridaApi> frida_api,
+               std::shared_ptr<utils::ISystemApi> system_api)
+    : m_frida(std::move(frida_api)), m_system(std::move(system_api)),
+      m_device_created_at(std::chrono::steady_clock::now()) {
   LOGI("Creating frida device {}", (void *)this);
 
-  m_manager = frida_device_manager_new();
+  m_manager = m_frida->ManagerNew();
   CHECK(m_manager != nullptr);
 
   GError *error = nullptr;
   auto *devices =
-      frida_device_manager_enumerate_devices_sync(m_manager, nullptr, &error);
+      m_frida->ManagerEnumerateDevicesSync(m_manager, nullptr, &error);
   CHECK(error == nullptr);
 
   const auto n_devices = frida_device_list_size(devices);
@@ -104,7 +117,7 @@ Device::Device() : m_device_created_at(std::chrono::steady_clock::now()) {
     LOGD("Found device {}", (void *)frida_device_get_name(device));
 
     if (frida_device_get_dtype(device) == FRIDA_DEVICE_TYPE_LOCAL) {
-      m_device = g_object_ref(device);
+      m_device = static_cast<FridaDevice *>(m_frida->ObjectRef(device));
       m_name = frida_device_get_name(device);
     }
 
@@ -119,19 +132,19 @@ Device::Device() : m_device_created_at(std::chrono::steady_clock::now()) {
     }
   }
 
-  frida_unref(devices);
+  m_frida->Unref(devices);
 }
 
 Device::~Device() {
   LOGI("Destroying frida device {}@{}", m_name, (void *)this);
 
   if (m_device != nullptr) {
-    frida_unref(m_device);
+    m_frida->Unref(m_device);
     m_device = nullptr;
   }
   if (m_manager != nullptr) {
-    frida_device_manager_close_sync(m_manager, nullptr, nullptr);
-    frida_unref(m_manager);
+    m_frida->ManagerCloseSync(m_manager, nullptr, nullptr);
+    m_frida->Unref(m_manager);
     m_manager = nullptr;
   }
 }
@@ -158,7 +171,7 @@ Status Device::Resume() {
 
   for (const auto &pid : m_pending_spawns) {
     GError *error = nullptr;
-    frida_device_resume_sync(m_device, pid, nullptr, &error);
+    m_frida->DeviceResumeSync(m_device, pid, nullptr, &error);
     if (error != nullptr) {
       // LOG(ERROR) << "Error resuming frida device: " << error->message;
       g_error_free(error);
@@ -184,8 +197,8 @@ Status Device::Attach(const utils::ProcessInfo &proc_info) {
 
   GError *error = nullptr;
 
-  auto *session = frida_device_attach_sync(m_device, proc_info.pid, nullptr,
-                                           nullptr, &error);
+  auto *session = m_frida->DeviceAttachSync(m_device, proc_info.pid, nullptr,
+                                             nullptr, &error);
   if (error != nullptr) {
     LOGE("Error attaching frida device: {}", error->message);
     // Don't unref session when there's an error - it's invalid!
@@ -200,7 +213,8 @@ Status Device::Attach(const utils::ProcessInfo &proc_info) {
     return SdkFailure("Invalid session returned from FRIDA");
   }
 
-  m_sessions[proc_info] = std::make_unique<Session>(proc_info.pid, session);
+  m_sessions[proc_info] =
+      std::make_unique<Session>(proc_info.pid, session, m_frida.get());
 
   return Ok();
 }
@@ -233,10 +247,10 @@ Status Device::SpawnAppAndAttach(std::string_view exec_name,
     frida_spawn_options_set_argv(options, argv.data(),
                                  static_cast<int>(argv.size()));
   }
-  auto spawn_pid = frida_device_spawn_sync(m_device, exec_name.data(), options,
-                                           nullptr, &error);
+  auto spawn_pid = m_frida->DeviceSpawnSync(m_device, exec_name.data(), options,
+                                             nullptr, &error);
 
-  frida_unref(options);
+  m_frida->Unref(options);
 
   LOGI("Spawned app with PID: {}", spawn_pid);
   if (error != nullptr) {
@@ -251,9 +265,9 @@ Status Device::SpawnAppAndAttach(std::string_view exec_name,
 
   m_pending_spawns.push_back(static_cast<pid_t>(spawn_pid));
 
-  utils::SleepForMilliseconds(2000);
+  m_system->SleepForMilliseconds(2000);
 
-  auto proc_info = utils::FindProcessByPid(static_cast<pid_t>(spawn_pid));
+  auto proc_info = m_system->FindProcessByPid(static_cast<pid_t>(spawn_pid));
   if (!proc_info.has_value()) {
     LOGE("Failed to find process by PID: {}", spawn_pid);
     return NotFound("Process not found by PID");
@@ -276,7 +290,7 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
   }
 
   utils::Subprocess am_process;
-  DeviceSpawnGatingGuard guard(m_device);
+  DeviceSpawnGatingGuard guard(m_device, m_frida.get());
   CHECK(guard.IsEnabled());
 
   Status status = am_process.Spawn("sh", {"-c", std::string(am_command_args)});
@@ -307,7 +321,7 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
   int64_t start_time = GetNowMs();
   while (true) {
     FridaSpawnList *spawned_apps =
-        frida_device_enumerate_pending_spawn_sync(m_device, nullptr, &error);
+        m_frida->DeviceEnumeratePendingSpawnSync(m_device, nullptr, &error);
     if (error != nullptr) {
       LOGE("Error enumerating pending spawns: {}", error->message);
       return SdkFailure("frida enumerate pending spawn failed");
@@ -323,11 +337,11 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
       if (identifier == *package_name) {
         found = true;
         LOGI("Found pending spawn with PID: {}", pid);
-        frida_unref(spawned_apps);
-        frida_unref(spawn);
+        m_frida->Unref(spawned_apps);
+        m_frida->Unref(spawn);
 
         m_pending_spawns.push_back(static_cast<pid_t>(pid));
-        auto proc_info = utils::FindProcessByPid(static_cast<pid_t>(pid));
+        auto proc_info = m_system->FindProcessByPid(static_cast<pid_t>(pid));
         if (!proc_info.has_value()) {
           LOGE("Failed to find process by PID: {}", pid);
           return NotFound("Process not found by PID");
@@ -335,15 +349,15 @@ Status Device::LaunchAppAndAttach(std::string_view am_command_args) {
         return Attach(*proc_info);
       }
 
-      frida_device_resume_sync(m_device, pid, nullptr, &error);
+      m_frida->DeviceResumeSync(m_device, pid, nullptr, &error);
       if (error != nullptr) {
         LOGE("Error resuming spawn with PID {}: {}", pid, error->message);
         return SdkFailure("frida resume spawn failed");
       }
 
-      frida_unref(spawn);
+      m_frida->Unref(spawn);
     }
-    frida_unref(spawned_apps);
+    m_frida->Unref(spawned_apps);
 
     if (found) {
       break;
@@ -409,7 +423,7 @@ Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
     const std::string am_command =
         session_config[kAmStartKey].get<std::string>();
     CHECK(!am_command.empty());
-    KillAppIfRunning(app_name);
+    KillAppIfRunning(app_name, m_system.get());
     return LaunchAppAndAttach(am_command);
   }
 
@@ -417,14 +431,14 @@ Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
     const bool need_spawn = session_config[kSpawnKey].get<bool>();
     if (need_spawn) {
       CHECK(!app_name.empty());
-      KillAppIfRunning(app_name);
+      KillAppIfRunning(app_name, m_system.get());
       return SpawnAppAndAttach(app_name);
     }
   }
 
   if (session_config.contains(kPidKey)) {
     int const pid = session_config[kPidKey].get<int>();
-    if (const auto proc = utils::FindProcessByPid(pid); proc.has_value()) {
+    if (const auto proc = m_system->FindProcessByPid(pid); proc.has_value()) {
       return Attach(*proc);
     }
     return NotFound("Process not found");
@@ -432,7 +446,7 @@ Status Device::AttachToAppFromConfig(const nlohmann::json &session_config) {
 
   if (session_config.contains(kAppNameKey)) {
     std::string const app_name = session_config[kAppNameKey].get<std::string>();
-    if (const auto proc = utils::FindProcessByName(app_name);
+    if (const auto proc = m_system->FindProcessByName(app_name);
         proc.has_value()) {
       return Attach(*proc);
     }
@@ -470,7 +484,7 @@ Device::CreateSession(const nlohmann::json &config) {
     }
   } else if (config.contains("app")) {
     // Check if app is already being instrumented
-    auto existing_proc = utils::FindProcessByName(app_name);
+    auto existing_proc = m_system->FindProcessByName(app_name);
     if (existing_proc.has_value() &&
         GetSession(existing_proc->pid) != nullptr) {
       return Err<Status>(
@@ -731,7 +745,7 @@ Result<nlohmann::json, Status> Device::LoadScript(pid_t target_pid,
   // Determine the actual source: if empty, read from file (name is the path)
   std::string script_source = source;
   if (script_source.empty()) {
-    script_source = utils::ReadFileToBuffer(name);
+    script_source = m_system->ReadFileToBuffer(name);
     if (script_source.empty()) {
       return Err<Status>(NotFound("Script file not found or empty: " + name));
     }
@@ -828,7 +842,7 @@ Device::ExtractAppNameFromConfig(const nlohmann::json &config) const {
 
   if (config.contains("pid") && config["pid"].is_number()) {
     pid_t pid = config["pid"];
-    auto proc_info = utils::FindProcessByPid(pid);
+    auto proc_info = m_system->FindProcessByPid(pid);
     if (proc_info.has_value()) {
       return proc_info->cmd_line;
     }
@@ -878,7 +892,7 @@ Device::CreateSessionAsync(const nlohmann::json &config) {
   if (config.contains(kPidKey)) {
     target_pid = config[kPidKey].get<int>();
   } else if (config.contains(kAppNameKey)) {
-    auto proc = utils::FindProcessByName(app_name);
+    auto proc = m_system->FindProcessByName(app_name);
     if (!proc.has_value()) {
       co_return Err<Status>(NotFound("Process not found: " + app_name));
     }
@@ -902,9 +916,9 @@ Device::CreateSessionAsync(const nlohmann::json &config) {
     co_return Err<Status>(SdkFailure("Attach returned null session"));
   }
 
-  auto proc_info = utils::FindProcessByPid(target_pid);
+  auto proc_info = m_system->FindProcessByPid(target_pid);
   if (!proc_info.has_value()) {
-    frida_unref(frida_session);
+    m_frida->Unref(frida_session);
     co_return Err<Status>(NotFound("Process not found after attach"));
   }
 
@@ -994,7 +1008,7 @@ Device::LoadScriptAsync(pid_t target_pid, const std::string &name,
 
   std::string script_source = source;
   if (script_source.empty()) {
-    script_source = utils::ReadFileToBuffer(name);
+    script_source = m_system->ReadFileToBuffer(name);
     if (script_source.empty()) {
       co_return Err<Status>(
           NotFound("Script file not found or empty: " + name));

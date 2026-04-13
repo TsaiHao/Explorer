@@ -3,6 +3,7 @@
 //
 
 #include "Session.h"
+#include "IFridaApi.h"
 #include "utils/Log.h"
 #include "utils/Status.h"
 #include "utils/System.h"
@@ -12,8 +13,8 @@ namespace {
 constexpr std::string_view kScriptFilesKey = "scripts";
 constexpr std::string_view kScriptsKey = "script_source";
 } // namespace
-Session::Session(pid_t pid, FridaSession *session)
-    : m_session(session), m_pid(pid) {
+Session::Session(pid_t pid, FridaSession *session, IFridaApi *frida_api)
+    : m_session(session), m_frida(frida_api), m_pid(pid) {
   LOGI("Creating session {}", (void *)this);
 }
 
@@ -26,7 +27,7 @@ Session::~Session() {
     // Add defensive programming - ensure we only unref once
     FridaSession *session_to_unref = m_session;
     m_session = nullptr; // Clear pointer before unref to prevent double-free
-    frida_unref(session_to_unref);
+    m_frida->Unref(session_to_unref);
   }
 }
 
@@ -37,7 +38,7 @@ Status Session::CreateScript(std::string_view name, std::string_view source) {
     return InvalidOperation("Duplicate name");
   }
   m_scripts[std::string(name)] =
-      std::make_unique<Script>(name, source, m_session);
+      std::make_unique<Script>(name, source, m_session, m_frida);
 
   RegisterCacheCallback(m_scripts[std::string(name)].get());
 
@@ -52,7 +53,7 @@ void Session::Resume() {
     return;
   }
   GError *error = nullptr;
-  frida_session_resume_sync(m_session, nullptr, &error);
+  m_frida->SessionResumeSync(m_session, nullptr, &error);
   CHECK(error == nullptr);
 
   m_attaching = true;
@@ -64,7 +65,7 @@ void Session::Detach() {
     return;
   }
   GError *error = nullptr;
-  frida_session_detach_sync(m_session, nullptr, &error);
+  m_frida->SessionDetachSync(m_session, nullptr, &error);
   CHECK(error == nullptr);
   m_attaching = false;
 }

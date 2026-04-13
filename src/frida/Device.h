@@ -5,6 +5,7 @@
 
 #include "Session.h"
 #include "nlohmann/json.hpp"
+#include "utils/ISystemApi.h"
 #include "utils/Macros.h"
 #include "utils/SmallMap.h"
 #include "utils/System.h"
@@ -24,6 +25,8 @@ public:
   using EnumerateSessionCallback = std::function<bool(Session *session)>;
 
   Device();
+  Device(std::shared_ptr<IFridaApi> frida_api,
+         std::shared_ptr<utils::ISystemApi> system_api);
   ~Device();
 
   DISABLE_COPY_AND_MOVE(Device);
@@ -160,6 +163,9 @@ private:
   std::string m_name;
   FridaDevice *m_device{nullptr};
   FridaDeviceManager *m_manager{nullptr};
+
+  std::shared_ptr<IFridaApi> m_frida;
+  std::shared_ptr<utils::ISystemApi> m_system;
 
   std::vector<pid_t> m_pending_spawns;
   const nlohmann::json *m_config = nullptr;

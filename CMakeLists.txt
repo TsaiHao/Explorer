@@ -126,4 +126,7 @@ add_subdirectory(third_party)
 add_subdirectory(src)
 
 add_subdirectory(tools)
-add_subdirectory(tests)
+if(NOT CMAKE_CROSSCOMPILING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

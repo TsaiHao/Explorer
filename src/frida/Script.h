@@ -23,6 +23,7 @@
 
 namespace frida {
 class Session;
+class IFridaApi;
 using RpcResult = Result<nlohmann::json, nlohmann::json>;
 
 class Script {
@@ -30,7 +31,8 @@ public:
   using OnMessageCallback = std::function<void(
       Script *, const nlohmann::json &, const uint8_t *data, size_t data_size)>;
 
-  Script(std::string_view name, std::string_view source, FridaSession *session);
+  Script(std::string_view name, std::string_view source, FridaSession *session,
+         IFridaApi *frida_api = nullptr);
   ~Script();
 
   DISABLE_COPY_AND_MOVE(Script);
@@ -71,6 +73,7 @@ private:
   FridaScript *m_script{nullptr};
   std::unordered_map<std::string, OnMessageCallback> m_callbacks;
   FridaSession *m_session{nullptr};
+  IFridaApi *m_frida{nullptr};
 
   std::atomic<int> m_rpc_call_id{0};
   SmallMap<int, RpcResult> m_rpc_call_results;
