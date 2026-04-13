@@ -3,14 +3,17 @@
 //
 #include "Device.h"
 #include "IFridaApi.h"
-#include "RealFridaApi.h"
 #include "frida-core.h"
 #include "utils/Log.h"
-#include "utils/RealSystemApi.h"
 #include "utils/Status.h"
 #include "utils/Subprocess.h"
 #include "utils/System.h"
 #include "utils/Util.h"
+
+#ifndef EXPLORER_TESTING
+#include "RealFridaApi.h"
+#include "utils/RealSystemApi.h"
+#endif
 
 namespace frida {
 namespace {
@@ -93,9 +96,11 @@ void KillAppIfRunning(std::string_view app_name,
 }
 } // namespace
 
+#ifndef EXPLORER_TESTING
 Device::Device()
     : Device(std::make_shared<RealFridaApi>(),
              std::make_shared<utils::RealSystemApi>()) {}
+#endif
 
 Device::Device(std::shared_ptr<IFridaApi> frida_api,
                std::shared_ptr<utils::ISystemApi> system_api)
