@@ -85,6 +85,14 @@ if (TARGET_ANDROID)
     target_link_libraries(COMMON_SETTINGS INTERFACE log)
 elseif (TARGET_VEGA)
     target_compile_definitions(COMMON_SETTINGS INTERFACE TARGET_VEGA)
+    # Silence GCC's -Wpsabi notes on 32-bit ARM (calling-convention change in
+    # GCC 7.1). Purely informational with a single GCC 15.2 toolchain.
+    target_compile_options(COMMON_SETTINGS INTERFACE -Wno-psabi)
+    # Frida's prebuilt libfrida-core.a bundles BoringSSL asm (e.g.
+    # ghash-armv4.S) whose objects lack a .note.GNU-stack section, which
+    # otherwise marks the whole binary's stack executable. Force a
+    # non-executable stack at link time.
+    target_link_options(COMMON_SETTINGS INTERFACE -Wl,-z,noexecstack)
 endif ()
 
 # ---------------------------------------------------------------------------

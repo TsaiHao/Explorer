@@ -63,3 +63,17 @@ add_executable(DeviceTest DeviceTest.cpp)
 target_include_directories(DeviceTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(DeviceTest PRIVATE test_frida_stubs GTest::gtest_main GTest::gmock)
 add_test(NAME DeviceTest COMMAND DeviceTest)
+
+# --- ApiSchemaTest (no Frida/Poco; pure request validation) ---
+add_executable(ApiSchemaTest
+    ApiSchemaTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/http/ApiSchema.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/Status.cpp
+)
+target_include_directories(ApiSchemaTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party
+    ${PROJECT_BINARY_DIR}/generated
+)
+target_link_libraries(ApiSchemaTest PRIVATE COMMON_SETTINGS GTest::gtest_main)
+add_test(NAME ApiSchemaTest COMMAND ApiSchemaTest)

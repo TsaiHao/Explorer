@@ -426,7 +426,12 @@ json ApiSchema::GetRequestExamples() {
 
 Status ApiSchema::CheckFieldType(const json &value, json::value_t expected_type,
                                  const std::string &field_name) {
-  if (value.type() != expected_type) {
+  // JSON integers are tagged number_unsigned (positive) or number_integer
+  // (negative); accept either when an integer is expected.
+  bool type_ok = (expected_type == json::value_t::number_integer)
+                     ? value.is_number_integer()
+                     : value.type() == expected_type;
+  if (!type_ok) {
     std::string expected_name;
     switch (expected_type) {
     case json::value_t::string:
